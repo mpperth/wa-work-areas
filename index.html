@@ -2670,9 +2670,29 @@ tr.sel td { background: var(--accent-soft); }
   window.addEventListener("hashchange", applyHash);
 
   /* ---------- Data store ---------- */
+  async function loadStaticAreasFallback() {
+    try {
+      const res = await fetch("areas-data.json");
+      const list = await res.json();
+      state.areas = list.map(function (a) {
+        return {
+          id: a.id, name: String(a.name || ""), codes: Array.isArray(a.codes) ? a.codes.map(String) : [],
+          updated: String(a.updated || ""), color: String(a.color || ""), group: Number(a.group) === 2 ? 2 : 1
+        };
+      });
+      rebuildOverlay();
+      renderGroupTabs();
+      renderAreas();
+      renderTable();
+      el("areasEmpty").textContent = "Read-only snapshot (no sign-in here) — pick an area to view it, or use suburbs/export below. Not live: may be out of date.";
+    } catch (err) {
+      el("areasEmpty").textContent = "Saved areas are not available in this view. You can still pick suburbs and copy the list.";
+    }
+  }
+
   async function startStore() {
     if (!window.claude || !window.claude.use) {
-      el("areasEmpty").textContent = "Saved areas are not available in this view. You can still pick suburbs and copy the list.";
+      await loadStaticAreasFallback();
       renderStatus();
       return;
     }
@@ -2681,7 +2701,7 @@ tr.sel td { background: var(--accent-soft); }
     const user = pair[1];
     downloads = pair[2];
     if (!db) {
-      el("areasEmpty").textContent = "Saved areas are not available in this view. You can still pick suburbs and copy the list.";
+      await loadStaticAreasFallback();
       renderStatus();
       return;
     }
