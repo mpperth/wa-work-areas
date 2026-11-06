@@ -1,0 +1,2787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WA Work Areas</title>
+<style>html,body{margin:0}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+</style>
+<style>
+/* Layout: three columns filling the screen - saved areas | map | suburb table. Toolbar on top. */
+:root {
+  --bg: #f3f5f4;
+  --panel: #ffffff;
+  --fg: #1d2523;
+  --muted: #5d6b67;
+  --line: #d5dcd9;
+  --accent: #0b6e63;
+  --accent-fg: #ffffff;
+  --accent-soft: #d8eeea;
+  --danger: #b3261e;
+  --sea: #dde8ee;
+  --land: #f7f6f1;
+  --land-line: #a9b3ae;
+  --sel: #0b8a7a;
+  --sel-line: #06574d;
+  --draw: #c2410c;
+  --council: #6d28d9;
+  --font-ui: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
+    --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
+    --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
+  --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
+  --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 13px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px; box-sizing: border-box;
+}
+* { box-sizing: border-box; }
+button, input { font: inherit; color: inherit; }
+.app { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+
+/* Toolbar: ghost-input row */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.toolbar h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: 0.01em; }
+.ghost-pair { display: flex; align-items: baseline; gap: 6px; }
+.ghost-pair label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.ghost {
+  border: 1px solid var(--land-line); border-radius: 4px; background: var(--panel); padding: 4px 8px;
+  min-width: 0; width: 260px; font-weight: 600;
+}
+.ghost:hover { border-color: var(--accent); }
+.ghost:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.ghost::placeholder { color: var(--muted); font-weight: 400; }
+.btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 4px 10px;
+  cursor: pointer; white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible, .ghost:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--danger); }
+.btn.danger.armed { background: var(--danger); color: var(--panel); border-color: var(--danger); }
+.btn[disabled] { opacity: 0.45; cursor: default; }
+.btn.on { background: var(--draw); border-color: var(--draw); color: #fff; }
+.status { color: var(--muted); font-size: 12px; }
+.status.dirty { color: var(--draw); font-weight: 600; }
+.spacer { flex: 1; }
+
+.confirm-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px;
+  border: 1px solid var(--draw); border-radius: 4px; background: var(--panel);
+}
+
+/* Main grid */
+.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 400px); gap: 8px; }
+.col { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.col-head { padding: 7px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.col-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+
+/* Areas list */
+.areas { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.areas li { border-bottom: 1px solid var(--line); }
+.areas button {
+  width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 10px; cursor: pointer;
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+}
+.areas button:hover { background: var(--accent-soft); }
+.areas button.current { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.areas .a-name { font-weight: 600; overflow-wrap: anywhere; }
+.areas .a-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.areas .a-date { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.empty-note { padding: 10px; color: var(--muted); line-height: 1.45; }
+
+/* Map */
+.map-col { position: relative; }
+#map { flex: 1; min-height: 300px; background: var(--sea); border-radius: 0 0 4px 4px; }
+.leaflet-container { font-family: var(--font-ui); background: var(--sea); }
+.leaflet-tooltip { font-family: var(--font-ui); font-size: 12px; }
+.leaflet-control-attribution { font-size: 10px; }
+.draw-hint { color: var(--draw); font-weight: 600; }
+.radio-row { display: flex; gap: 10px; align-items: center; }
+.radio-row label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+
+/* Table */
+.table-tools { padding: 7px 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.search { width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; background: var(--bg); }
+.table-wrap { flex: 1; overflow: auto; min-height: 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--panel); z-index: 1; font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; }
+th.nosort { cursor: default; width: 28px; }
+th.plain { cursor: default; }
+th .arrow { font-size: 10px; }
+td.code { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+td.name { white-space: normal; }
+.swatches { display: flex; gap: 4px; align-items: center; }
+.swatch { position: relative; cursor: pointer; display: block; }
+.swatch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.swatch span { display: block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--line); }
+.swatch input:checked + span { box-shadow: 0 0 0 2px var(--fg); }
+.swatch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.areas li { display: flex; align-items: stretch; }
+.areas li button { flex: 1; min-width: 0; }
+.areas .show-box { display: flex; align-items: center; padding-left: 8px; cursor: pointer; }
+.areas .a-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+td.areas-cell { white-space: normal; font-size: 11px; color: var(--muted); }
+td.areas-cell .a-dot { width: 8px; height: 8px; margin-right: 3px; display: inline-block; border-radius: 50%; }
+.vx-handle, .mid-handle { background: none; border: 0; }
+.vx-handle span, .mid-handle span {
+  display: block; transform: translate(-50%, -50%); border-radius: 50%; cursor: grab;
+  background: var(--panel); border: 2px solid var(--draw);
+}
+.vx-handle span { width: 14px; height: 14px; }
+.mid-handle span { width: 9px; height: 9px; opacity: 0.75; }
+.sub-label { background: none; border: 0; }
+.sub-label span {
+  display: block; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none;
+  font-size: 11px; font-weight: 500; color: var(--fg);
+  text-shadow: 0 0 2px var(--land), 0 0 2px var(--land), 0 0 3px var(--land);
+}
+.sub-label.in span { font-weight: 700; color: var(--sel-line); }
+td.council { white-space: normal; color: var(--muted); font-size: 12px; }
+td.name button { border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
+td.name button:hover { color: var(--accent); text-decoration: underline; }
+tr.sel td { background: var(--accent-soft); }
+.counts { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.foot { padding: 7px 10px; border-top: 1px solid var(--line); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.group-tabs { display: flex; gap: 2px; margin-left: auto; border: 1px solid var(--line); border-radius: 4px; padding: 2px; background: var(--bg); }
+.group-tabs button {
+  border: 0; background: none; border-radius: 3px; padding: 3px 9px; font-size: 12px; font-weight: 600;
+  color: var(--muted); cursor: pointer;
+}
+.group-tabs button.active { background: var(--accent); color: var(--accent-fg); }
+.group-tabs button:hover:not(.active) { background: var(--accent-soft); color: var(--fg); }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay[hidden] { display: none; }
+.modal-box {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; width: min(720px, 100%);
+  max-height: 86vh; display: flex; flex-direction: column; box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+}
+.modal-head { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.modal-head h3 { margin: 0; font-size: 13px; font-weight: 700; flex: 1; }
+.modal-body { padding: 12px 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.modal-foot { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.import-paste { width: 100%; min-height: 110px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); padding: 8px; font-family: var(--font-mono); font-size: 12px; resize: vertical; box-sizing: border-box; }
+.import-hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.import-table-wrap { border: 1px solid var(--line); border-radius: 4px; max-height: 260px; overflow: auto; }
+.import-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.import-table th, .import-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.import-table th:last-child, .import-table td.postcode { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.import-table tr.nomatch { color: var(--danger); }
+.import-table tr.nomatch td.suburb::after { content: " \2014 no match"; font-size: 11px; }
+.import-summary { font-size: 12px; color: var(--muted); }
+
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .main { grid-template-columns: minmax(0, 1fr); }
+  #map { height: 60vh; }
+  .areas { max-height: 200px; }
+  .table-wrap { max-height: 60vh; }
+  .ghost { width: 180px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="toolbar">
+    <h1>WA Work Areas</h1>
+    <div class="ghost-pair">
+      <label for="areaName">Area</label>
+      <input id="areaName" class="ghost" type="text" placeholder="Name this area" autocomplete="off">
+    </div>
+    <div id="swatches" class="swatches" role="radiogroup" aria-label="Area colour"></div>
+    <button id="btnSave" class="btn primary" type="button">Save</button>
+    <button id="btnSaveNew" class="btn" type="button">Save as new</button>
+    <button id="btnNew" class="btn" type="button">New area</button>
+    <button id="btnDelete" class="btn danger" type="button">Delete</button>
+    <span id="saveStatus" class="status"></span>
+  </div>
+
+  <div id="confirmStrip" class="confirm-strip" hidden>
+    <span id="confirmText">This area has unsaved changes.</span>
+    <button id="confirmYes" class="btn danger armed" type="button">Discard changes</button>
+    <button id="confirmNo" class="btn" type="button">Keep editing</button>
+  </div>
+
+  <div class="main">
+    <section class="col" aria-label="Saved areas">
+      <div class="col-head">
+        <h2>Saved areas</h2>
+        <span id="areasCount" class="status counts"></span>
+        <div class="group-tabs" role="group" aria-label="Area group">
+          <button type="button" id="tabGroup1" aria-pressed="true">Group 1</button>
+          <button type="button" id="tabGroup2" aria-pressed="false">Group 2</button>
+        </div>
+        <button type="button" id="btnRenameGroup" class="btn" title="Rename the current group">Rename</button>
+      </div>
+      <div class="col-head">
+        <button id="btnDraw" class="btn" type="button">Draw shape</button>
+        <div class="radio-row" role="radiogroup" aria-label="Drawing adds or removes suburbs">
+          <label><input type="radio" name="drawOp" id="opAdd" value="add" checked> Add</label>
+          <label><input type="radio" name="drawOp" id="opRemove" value="remove"> Remove</label>
+        </div>
+        <button id="btnFinish" class="btn" type="button" hidden>Finish shape</button>
+        <button id="btnUndoPt" class="btn" type="button" hidden>Undo corner</button>
+        <button id="btnCancelDraw" class="btn" type="button" hidden>Cancel</button>
+        <button id="btnEditShape" class="btn" type="button" hidden>Edit shape</button>
+        <button id="btnClearShape" class="btn" type="button" hidden>Hide shape</button>
+        <span id="drawHint" class="draw-hint" hidden>Click points round the area. Double-click or Finish to close.</span>
+      </div>
+      <ul id="areasList" class="areas"></ul>
+      <div id="areasEmpty" class="empty-note">Loading saved areas...</div>
+      <div class="foot">
+        <button id="btnImport" class="btn" type="button">Import by suburb name</button>
+      </div>
+    </section>
+
+    <section class="col map-col" aria-label="Map">
+      <div id="map"></div>
+    </section>
+
+    <section class="col" aria-label="Suburbs">
+      <div class="table-tools">
+        <input id="search" class="search" type="search" placeholder="Search suburb or code" autocomplete="off">
+        <div class="radio-row" role="radiogroup" aria-label="Show">
+          <label><input type="radio" name="show" id="showSel" value="sel" checked> In area</label>
+          <label><input type="radio" name="show" id="showAll" value="all"> All suburbs</label>
+          <label><input type="radio" name="show" id="showOut" value="out"> Not in area</label>
+          <span class="spacer"></span>
+          <span id="tableCount" class="status counts"></span>
+        </div>
+        <div class="radio-row" role="radiogroup" aria-label="Clicking the map picks">
+          <span class="status">Click picks:</span>
+          <label><input type="radio" name="pickMode" id="pickSuburb" value="suburb" checked> Suburb</label>
+          <label><input type="radio" name="pickMode" id="pickCouncil" value="council"> Council</label>
+          <label class="radio-row"><input type="checkbox" id="showNames" checked> Names</label>
+          <span class="spacer"></span>
+          <button id="zoomWA" class="btn" type="button">All WA</button>
+          <button id="zoomPerth" class="btn" type="button">Perth</button>
+          <button id="zoomSel" class="btn" type="button">Fit selected</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="nosort" scope="col"><span class="visually-hidden" hidden>In area</span></th>
+            <th scope="col" data-sort="n">Suburb <span class="arrow"></span></th>
+            <th scope="col" data-sort="k">Council <span class="arrow"></span></th>
+            <th scope="col" class="plain">Saved areas</th>
+            <th scope="col" data-sort="c">ABS code <span class="arrow"></span></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div id="tableEmpty" class="empty-note" hidden></div>
+      </div>
+      <div class="foot">
+        <button id="btnPdf" class="btn" type="button">Export PDF</button>
+        <button id="btnCsv" class="btn" type="button">Export CSV</button>
+        <button id="btnCopy" class="btn" type="button">Copy list</button>
+        <button id="btnClear" class="btn danger" type="button">Clear all</button>
+        <span id="footStatus" class="status"></span>
+      </div>
+    </section>
+  </div>
+
+  <div id="importOverlay" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <div class="modal-head">
+        <h3 id="importTitle">Import by suburb name</h3>
+        <button id="importClose" class="btn" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-hint">
+          Paste rows of postcode, suburb name and zone (one per line, as copied from a spreadsheet). The suburb name is matched against the map's own suburb list. New areas are created into whichever group is selected below &mdash; one area per zone.
+        </div>
+        <textarea id="importPaste" class="import-paste" placeholder="6069&#9;Carabooda&#9;N1&#10;6066&#9;Wanneroo&#9;N2"></textarea>
+        <div class="radio-row" role="radiogroup" aria-label="Import into group">
+          <label><input type="radio" name="importGroup" id="importGroup1" value="1"> <span id="importGroup1Label">Group 1</span></label>
+          <label><input type="radio" name="importGroup" id="importGroup2" value="2" checked> <span id="importGroup2Label">Group 2</span></label>
+          <span class="spacer"></span>
+          <button id="btnParseImport" class="btn" type="button">Preview</button>
+        </div>
+        <div id="importPreviewWrap" class="import-table-wrap" hidden>
+          <table class="import-table">
+            <thead><tr><th>Suburb</th><th>Zone</th><th>Postcode</th></tr></thead>
+            <tbody id="importRows"></tbody>
+          </table>
+        </div>
+        <div id="importSummary" class="import-summary"></div>
+      </div>
+      <div class="modal-foot">
+        <button id="btnCreateImport" class="btn primary" type="button">Create areas</button>
+        <span id="importStatus" class="status"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const WA_BOUNDS = [[-35.2, 112.8], [-13.6, 129.1]];
+  const PERTH_BOUNDS = [[-32.6, 115.6], [-31.6, 116.2]];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const state = {
+    suburbs: [],
+    byCode: new Map(),
+    layerByCode: new Map(),
+    selected: new Set(),
+    areas: [],
+    currentId: null,
+    savedName: "",
+    savedCodes: "",
+    sortKey: "n",
+    sortDir: 1,
+    show: "sel",
+    search: "",
+    drawing: false,
+    drawPts: [],
+    db: null,
+    canWrite: true,
+    pendingAction: null,
+    hashWanted: "",
+    pickMode: "suburb",
+    councils: [],
+    councilByCode: new Map(),
+    color: "#0b8a7a",
+    savedColor: "#0b8a7a",
+    shown: new Set(),
+    overlayByCode: new Map(),
+    areasByCode: new Map(),
+    group: 1,
+    importRows: [],
+    groupNames: { 1: "Group 1", 2: "Group 2" }
+  };
+
+  const el = function (id) { return document.getElementById(id); };
+  const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+    });
+  }
+
+  function todayIso() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  function showDate(iso) {
+    if (!iso || iso.length < 10) {
+      return "";
+    }
+    const y = iso.slice(2, 4);
+    const m = MONTHS[Number(iso.slice(5, 7)) - 1] || "";
+    return iso.slice(8, 10) + " " + m + " " + y;
+  }
+
+  function token(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  /* ---------- Map ---------- */
+  const map = L.map("map", { preferCanvas: true, zoomSnap: 0.5, doubleClickZoom: false, minZoom: 4 });
+  map.attributionControl.setPrefix(false);
+  map.attributionControl.addAttribution("Suburb boundaries: ABS ASGS 2021, CC BY 4.0");
+  map.fitBounds(WA_BOUNDS);
+
+  let geoLayer = null;
+  let drawLine = null;
+  let drawShape = null;
+
+  function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (v) {
+      return Math.max(0, Math.min(255, Math.round(v * f)));
+    });
+    return "#" + ch.map(function (v) { return v.toString(16).padStart(2, "0"); }).join("");
+  }
+
+  function styleFor(code) {
+    if (state.selected.has(code)) {
+      return { color: shade(state.color, 0.6), weight: 1.6, fillColor: state.color, fillOpacity: 0.62 };
+    }
+    const other = state.overlayByCode.get(code);
+    if (other) {
+      return { color: shade(other.color, 0.75), weight: 0.8, fillColor: other.color, fillOpacity: 0.35 };
+    }
+    return { color: token("--land-line"), weight: 0.6, fillColor: token("--land"), fillOpacity: 1 };
+  }
+
+  /* ---------- Area colours + shown areas ---------- */
+  const PALETTE = ["#0b8a7a", "#2563eb", "#d97706", "#dc2626", "#7c3aed", "#16a34a", "#db2777", "#0891b2", "#92400e", "#4b5563"];
+  const SHOWN_KEY = "wa-work-areas-shown";
+  const GROUP_KEY = "wa-work-areas-group";
+
+  function loadShown() {
+    try {
+      const raw = localStorage.getItem(SHOWN_KEY);
+      if (raw) {
+        state.shown = new Set(JSON.parse(raw));
+      }
+    } catch (err) {
+      state.shown = new Set();
+    }
+    try {
+      const g = Number(localStorage.getItem(GROUP_KEY));
+      if (g === 1 || g === 2) {
+        state.group = g;
+      }
+    } catch (err) {
+      state.group = 1;
+    }
+  }
+
+  function storeShown() {
+    try {
+      localStorage.setItem(SHOWN_KEY, JSON.stringify(Array.from(state.shown)));
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+  }
+
+  function storeGroup() {
+    try {
+      localStorage.setItem(GROUP_KEY, String(state.group));
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+  }
+
+  function areaGroup(a) {
+    return a && (a.group === 2) ? 2 : 1;
+  }
+
+  function groupName(n) {
+    return (state.groupNames && state.groupNames[n]) || ("Group " + n);
+  }
+
+  function areaColor(a) {
+    if (a && PALETTE.indexOf(a.color) !== -1) {
+      return a.color;
+    }
+    return PALETTE[0];
+  }
+
+  function sortedAreas() {
+    return state.areas.slice()
+      .filter(function (a) { return areaGroup(a) === state.group; })
+      .sort(function (a, b) { return collator.compare(a.name, b.name); });
+  }
+
+  function rebuildOverlay() {
+    state.overlayByCode = new Map();
+    state.areasByCode = new Map();
+    sortedAreas().forEach(function (a) {
+      a.codes.forEach(function (c) {
+        if (!state.areasByCode.has(c)) {
+          state.areasByCode.set(c, []);
+        }
+        state.areasByCode.get(c).push(a);
+        if (a.id !== state.currentId && state.shown.has(a.id) && !state.overlayByCode.has(c)) {
+          state.overlayByCode.set(c, { color: areaColor(a), name: a.name });
+        }
+      });
+    });
+    restyleAll();
+  }
+
+  function renderSwatches() {
+    document.querySelectorAll("input[name=areaColor]").forEach(function (r) {
+      r.checked = r.value === state.color;
+    });
+  }
+
+  function setColor(hex) {
+    state.color = hex;
+    renderSwatches();
+    state.selected.forEach(function (c) { restyle(c); });
+    renderStatus();
+    renderLabels();
+  }
+
+  function nextFreeColor() {
+    const used = new Set(state.areas.map(areaColor));
+    const free = PALETTE.find(function (p) { return !used.has(p); });
+    if (free) {
+      return free;
+    }
+    return PALETTE[state.areas.length % PALETTE.length];
+  }
+
+  (function buildSwatches() {
+    const box = el("swatches");
+    box.innerHTML = PALETTE.map(function (p, i) {
+      return "<label class=\"swatch\" title=\"Colour " + (i + 1) + "\"><input type=\"radio\" name=\"areaColor\" id=\"col" + i + "\" value=\"" + p + "\">" +
+        "<span style=\"background:" + p + "\"></span></label>";
+    }).join("");
+    box.addEventListener("change", function (e) {
+      if (e.target.name === "areaColor") {
+        setColor(e.target.value);
+      }
+    });
+  })();
+
+  function restyle(code) {
+    const layer = state.layerByCode.get(code);
+    if (layer) {
+      layer.setStyle(styleFor(code));
+    }
+  }
+
+  function restyleAll() {
+    state.layerByCode.forEach(function (layer, code) {
+      layer.setStyle(styleFor(code));
+    });
+    if (drawShape) {
+      drawShape.setStyle({ color: token("--draw") });
+    }
+    if (councilLayer) {
+      councilLayer.setStyle(councilStyle);
+    }
+  }
+
+  function buildLayer() {
+    const fc = {
+      type: "FeatureCollection",
+      features: state.suburbs.map(function (s) {
+        return { type: "Feature", properties: { c: s.c, n: s.n }, geometry: s.g };
+      })
+    };
+    geoLayer = L.geoJSON(fc, {
+      style: function (f) { return styleFor(f.properties.c); },
+      onEachFeature: function (f, layer) {
+        state.layerByCode.set(f.properties.c, layer);
+        layer.bindTooltip(function () { return tooltipFor(f.properties.c); }, { sticky: true, direction: "top", offset: [0, -6] });
+        layer.on("click", function (e) {
+          if (state.drawing) {
+            L.DomEvent.stopPropagation(e);
+            addDrawPoint(e.latlng);
+            return;
+          }
+          if (state.pickMode === "council") {
+            pickCouncilAt(e.latlng, f.properties.c);
+          } else {
+            toggle(f.properties.c);
+          }
+        });
+        layer.on("dblclick", function (e) {
+          if (state.drawing) {
+            return;
+          }
+          L.DomEvent.stopPropagation(e);
+          map.fitBounds(layer.getBounds(), { maxZoom: 13, padding: [30, 30] });
+        });
+      }
+    }).addTo(map);
+  }
+
+  /* ---------- Suburb name labels ---------- */
+  const labelLayer = L.layerGroup().addTo(map);
+  const LABEL_ALL_ZOOM = 11;
+  const LABEL_SELECTED_ZOOM = 8.5;
+  const LABEL_CAP = 450;
+
+  function labelPoint(s) {
+    if (!s.lp) {
+      try {
+        const p = turf.pointOnFeature(s.feature).geometry.coordinates;
+        s.lp = [p[1], p[0]];
+      } catch (err) {
+        s.lp = [(s.bbox[1] + s.bbox[3]) / 2, (s.bbox[0] + s.bbox[2]) / 2];
+      }
+    }
+    return s.lp;
+  }
+
+  function renderLabels() {
+    labelLayer.clearLayers();
+    if (!el("showNames").checked || state.suburbs.length === 0) {
+      return;
+    }
+    const zoom = map.getZoom();
+    if (zoom < LABEL_SELECTED_ZOOM) {
+      return;
+    }
+    const allNames = zoom >= LABEL_ALL_ZOOM;
+    const v = map.getBounds();
+    const w = v.getWest();
+    const e = v.getEast();
+    const so = v.getSouth();
+    const n = v.getNorth();
+    let count = 0;
+    state.suburbs.forEach(function (s) {
+      if (count >= LABEL_CAP) {
+        return;
+      }
+      const inArea = state.selected.has(s.c);
+      if (!allNames && !inArea) {
+        return;
+      }
+      const b = s.bbox;
+      if (b[0] > e || b[2] < w || b[1] > n || b[3] < so) {
+        return;
+      }
+      const p = labelPoint(s);
+      if (p[1] < w || p[1] > e || p[0] < so || p[0] > n) {
+        return;
+      }
+      let cls = "sub-label";
+      if (inArea) {
+        cls = "sub-label in";
+      }
+      const text = escapeHtml(s.n.replace(/ \(WA\)$/, ""));
+      L.marker(p, {
+        interactive: false,
+        keyboard: false,
+        icon: L.divIcon({ className: cls, html: "<span>" + text + "</span>", iconSize: [0, 0] })
+      }).addTo(labelLayer);
+      count += 1;
+    });
+  }
+
+  map.on("moveend", renderLabels);
+
+  /* ---------- Councils ---------- */
+  let councilLayer = null;
+
+  function councilStyle() {
+    return { color: token("--council"), weight: 2.2, fill: false, interactive: false };
+  }
+
+  function buildCouncilLayer() {
+    const fc = {
+      type: "FeatureCollection",
+      features: state.councils.map(function (l) {
+        return { type: "Feature", properties: { c: l.c }, geometry: l.g };
+      })
+    };
+    councilLayer = L.geoJSON(fc, { style: councilStyle, interactive: false });
+  }
+
+  function tooltipFor(code) {
+    const s = state.byCode.get(code);
+    if (!s) {
+      return "";
+    }
+    if (state.pickMode === "council") {
+      return escapeHtml(s.k) + " council (click to add or remove all its suburbs)";
+    }
+    return escapeHtml(s.n);
+  }
+
+  function councilAt(latlng, fallbackCode) {
+    const pt = turf.point([latlng.lng, latlng.lat]);
+    const hit = state.councils.find(function (l) {
+      const b = l.bbox;
+      if (latlng.lng < b[0] || latlng.lng > b[2] || latlng.lat < b[1] || latlng.lat > b[3]) {
+        return false;
+      }
+      try {
+        return turf.booleanPointInPolygon(pt, l.feature);
+      } catch (err) {
+        return false;
+      }
+    });
+    if (hit) {
+      return hit;
+    }
+    const s = state.byCode.get(fallbackCode);
+    if (s && s.l.length > 0) {
+      return state.councilByCode.get(s.l[0]) || null;
+    }
+    return null;
+  }
+
+  function pickCouncilAt(latlng, fallbackCode) {
+    const council = councilAt(latlng, fallbackCode);
+    if (!council) {
+      return;
+    }
+    const members = state.suburbs.filter(function (s) { return s.l.indexOf(council.c) !== -1; });
+    const allIn = members.every(function (s) { return state.selected.has(s.c); });
+    members.forEach(function (s) {
+      if (allIn) {
+        state.selected.delete(s.c);
+      } else {
+        state.selected.add(s.c);
+      }
+      restyle(s.c);
+    });
+    if (allIn) {
+      el("footStatus").textContent = council.n + " council: " + members.length + " suburbs removed.";
+    } else {
+      el("footStatus").textContent = council.n + " council: " + members.length + " suburbs added.";
+    }
+    afterChange();
+  }
+
+  function setPickMode(mode) {
+    state.pickMode = mode;
+    if (!councilLayer) {
+      return;
+    }
+    if (mode === "council") {
+      councilLayer.addTo(map);
+    } else {
+      map.removeLayer(councilLayer);
+    }
+  }
+
+  document.querySelectorAll("input[name=pickMode]").forEach(function (r) {
+    r.addEventListener("change", function () { setPickMode(r.value); });
+  });
+
+  /* ---------- Selection ---------- */
+  function toggle(code) {
+    if (shapeInfo) {
+      shapeInfo.changed.delete(code);
+    }
+    if (state.selected.has(code)) {
+      state.selected.delete(code);
+    } else {
+      state.selected.add(code);
+    }
+    restyle(code);
+    afterChange();
+  }
+
+  function setSelection(codes) {
+    const old = state.selected;
+    state.selected = new Set(codes);
+    old.forEach(function (c) { if (!state.selected.has(c)) { restyle(c); } });
+    state.selected.forEach(function (c) { if (!old.has(c)) { restyle(c); } });
+  }
+
+  function codesKey(set) {
+    return Array.from(set).sort().join(",");
+  }
+
+  function isDirty() {
+    if (el("areaName").value.trim() !== state.savedName) {
+      return true;
+    }
+    if (state.currentId && state.color !== state.savedColor) {
+      return true;
+    }
+    return codesKey(state.selected) !== state.savedCodes;
+  }
+
+  function afterChange() {
+    renderTable();
+    renderStatus();
+    renderLabels();
+  }
+
+  el("showNames").addEventListener("change", renderLabels);
+
+  /* ---------- Drawing ---------- */
+  function startDraw() {
+    state.drawing = true;
+    state.drawPts = [];
+    el("btnDraw").classList.add("on");
+    el("btnFinish").hidden = false;
+    el("btnUndoPt").hidden = false;
+    el("btnCancelDraw").hidden = false;
+    el("drawHint").hidden = false;
+    lastMouse = null;
+    el("drawHint").textContent = drawHintText();
+    map.getContainer().style.cursor = "crosshair";
+    clearShape();
+  }
+
+  function stopDraw() {
+    state.drawing = false;
+    state.drawPts = [];
+    el("btnDraw").classList.remove("on");
+    el("btnFinish").hidden = true;
+    el("btnUndoPt").hidden = true;
+    el("btnCancelDraw").hidden = true;
+    el("drawHint").hidden = true;
+    map.getContainer().style.cursor = "";
+    drawGroup.clearLayers();
+    drawLine = null;
+    rubberLine = null;
+  }
+
+  const drawGroup = L.layerGroup().addTo(map);
+  let rubberLine = null;
+  let lastMouse = null;
+
+  function drawHintText() {
+    const n = state.drawPts.length;
+    if (n === 0) {
+      return "Click the map to place the first corner.";
+    }
+    if (n < 3) {
+      return n + " corner(s). Click to place the next corner.";
+    }
+    return n + " corners. Keep clicking, or click the first corner, double-click, or press Finish to close.";
+  }
+
+  function redrawSketch() {
+    drawGroup.clearLayers();
+    const pts = state.drawPts;
+    const colour = token("--draw");
+    drawLine = null;
+    rubberLine = null;
+    if (pts.length > 1) {
+      drawLine = L.polyline(pts, { color: colour, weight: 2.5, interactive: false }).addTo(drawGroup);
+    }
+    pts.forEach(function (p, i) {
+      let radius = 4;
+      if (i === 0) {
+        radius = 7;
+      }
+      L.circleMarker(p, { radius: radius, color: colour, weight: 2, fillColor: token("--panel"), fillOpacity: 1, interactive: false }).addTo(drawGroup);
+    });
+    if (pts.length > 0 && lastMouse) {
+      const guide = [pts[pts.length - 1], lastMouse];
+      if (pts.length > 1) {
+        guide.push(pts[0]);
+      }
+      rubberLine = L.polyline(guide, { color: colour, weight: 1.5, dashArray: "4 4", opacity: 0.8, interactive: false }).addTo(drawGroup);
+    }
+    el("drawHint").textContent = drawHintText();
+  }
+
+  function nearFirstPoint(latlng) {
+    if (state.drawPts.length < 3) {
+      return false;
+    }
+    const a = map.latLngToContainerPoint(state.drawPts[0]);
+    const b = map.latLngToContainerPoint(latlng);
+    return a.distanceTo(b) < 12;
+  }
+
+  function addDrawPoint(latlng) {
+    const pts = state.drawPts;
+    if (nearFirstPoint(latlng)) {
+      finishDraw();
+      return;
+    }
+    if (pts.length > 0) {
+      const last = pts[pts.length - 1];
+      const a = map.latLngToContainerPoint(last);
+      const b = map.latLngToContainerPoint(latlng);
+      if (a.distanceTo(b) < 4) {
+        return;
+      }
+    }
+    pts.push(latlng);
+    redrawSketch();
+  }
+
+  function undoDrawPoint() {
+    if (state.drawPts.length > 0) {
+      state.drawPts.pop();
+      redrawSketch();
+    }
+  }
+
+  map.on("mousemove", function (e) {
+    if (!state.drawing || state.drawPts.length === 0) {
+      return;
+    }
+    lastMouse = e.latlng;
+    if (rubberLine) {
+      const pts = state.drawPts;
+      const guide = [pts[pts.length - 1], lastMouse];
+      if (pts.length > 1) {
+        guide.push(pts[0]);
+      }
+      rubberLine.setLatLngs(guide);
+    } else {
+      redrawSketch();
+    }
+  });
+
+  /* The current finished shape: its corners, whether it adds or removes,
+     and exactly which suburbs it changed, so a reshape can undo then redo. */
+  let shapeInfo = null;
+  let editing = false;
+  const handleGroup = L.layerGroup().addTo(map);
+
+  function shapeStatus(info) {
+    if (info.remove) {
+      el("footStatus").textContent = info.changed.size + " suburbs removed by shape.";
+    } else {
+      el("footStatus").textContent = info.changed.size + " suburbs added by shape.";
+    }
+  }
+
+  function undoShapeEffect(info) {
+    info.changed.forEach(function (c) {
+      if (info.remove) {
+        state.selected.add(c);
+      } else {
+        state.selected.delete(c);
+      }
+      restyle(c);
+    });
+  }
+
+  function applyShape(pts, remove) {
+    const changed = new Set();
+    const ring = pts.map(function (p) { return [p.lng, p.lat]; });
+    ring.push(ring[0]);
+    let shape;
+    try {
+      shape = turf.polygon([ring]);
+    } catch (err) {
+      return null;
+    }
+    const sb = turf.bbox(shape);
+    state.suburbs.forEach(function (s) {
+      const b = s.bbox;
+      if (b[0] > sb[2] || b[2] < sb[0] || b[1] > sb[3] || b[3] < sb[1]) {
+        return;
+      }
+      let hit = false;
+      try {
+        hit = turf.booleanIntersects(shape, s.feature);
+      } catch (err) {
+        hit = false;
+      }
+      if (!hit) {
+        return;
+      }
+      if (remove) {
+        if (state.selected.has(s.c)) {
+          state.selected.delete(s.c);
+          restyle(s.c);
+          changed.add(s.c);
+        }
+      } else if (!state.selected.has(s.c)) {
+        state.selected.add(s.c);
+        restyle(s.c);
+        changed.add(s.c);
+      }
+    });
+    return changed;
+  }
+
+  function reapplyShape() {
+    if (!shapeInfo) {
+      return;
+    }
+    undoShapeEffect(shapeInfo);
+    const changed = applyShape(shapeInfo.pts, shapeInfo.remove);
+    if (changed) {
+      shapeInfo.changed = changed;
+    } else {
+      shapeInfo.changed = new Set();
+    }
+    drawShape.setLatLngs(shapeInfo.pts);
+    shapeStatus(shapeInfo);
+    afterChange();
+  }
+
+  function handleIcon(cls) {
+    return L.divIcon({ className: cls, html: "<span></span>", iconSize: [0, 0] });
+  }
+
+  function renderHandles() {
+    handleGroup.clearLayers();
+    if (!editing || !shapeInfo) {
+      return;
+    }
+    const pts = shapeInfo.pts;
+    pts.forEach(function (p, i) {
+      const m = L.marker(p, { draggable: true, icon: handleIcon("vx-handle"), title: "Drag to move. Double-click to delete." });
+      m.on("drag", function (e) {
+        pts[i] = e.target.getLatLng();
+        drawShape.setLatLngs(pts);
+      });
+      m.on("dragend", function () {
+        reapplyShape();
+        renderHandles();
+      });
+      m.on("dblclick", function (e) {
+        L.DomEvent.stopPropagation(e);
+        if (pts.length <= 3) {
+          el("footStatus").textContent = "A shape needs at least 3 corners.";
+          return;
+        }
+        pts.splice(i, 1);
+        reapplyShape();
+        renderHandles();
+      });
+      m.addTo(handleGroup);
+    });
+    pts.forEach(function (p, i) {
+      const q = pts[(i + 1) % pts.length];
+      const mid = L.latLng((p.lat + q.lat) / 2, (p.lng + q.lng) / 2);
+      const m = L.marker(mid, { draggable: true, icon: handleIcon("mid-handle"), title: "Drag to add a corner here." });
+      let inserted = false;
+      m.on("drag", function (e) {
+        if (!inserted) {
+          pts.splice(i + 1, 0, e.target.getLatLng());
+          inserted = true;
+        } else {
+          pts[i + 1] = e.target.getLatLng();
+        }
+        drawShape.setLatLngs(pts);
+      });
+      m.on("dragend", function () {
+        reapplyShape();
+        renderHandles();
+      });
+      m.addTo(handleGroup);
+    });
+  }
+
+  function setEditing(on) {
+    editing = on;
+    if (on) {
+      el("btnEditShape").textContent = "Done editing";
+      el("btnEditShape").classList.add("on");
+      el("drawHint").hidden = false;
+      el("drawHint").textContent = "Drag a corner to move it. Drag a small middle dot to add a corner. Double-click a corner to delete it.";
+    } else {
+      el("btnEditShape").textContent = "Edit shape";
+      el("btnEditShape").classList.remove("on");
+      if (!state.drawing) {
+        el("drawHint").hidden = true;
+      }
+    }
+    renderHandles();
+  }
+
+  function clearShape() {
+    setEditing(false);
+    shapeInfo = null;
+    if (drawShape) {
+      map.removeLayer(drawShape);
+      drawShape = null;
+    }
+    el("btnEditShape").hidden = true;
+    el("btnClearShape").hidden = true;
+  }
+
+  function finishDraw() {
+    const pts = state.drawPts.slice();
+    if (pts.length < 3) {
+      el("footStatus").textContent = "A shape needs at least 3 points.";
+      return;
+    }
+    const remove = el("opRemove").checked;
+    const changed = applyShape(pts, remove);
+    if (!changed) {
+      el("footStatus").textContent = "That shape could not be used. Try drawing it again.";
+      stopDraw();
+      return;
+    }
+    stopDraw();
+    drawShape = L.polygon(pts, { color: token("--draw"), weight: 2, dashArray: "5 4", fill: false, interactive: false }).addTo(map);
+    shapeInfo = { pts: pts, remove: remove, changed: changed };
+    el("btnEditShape").hidden = false;
+    el("btnClearShape").hidden = false;
+    shapeStatus(shapeInfo);
+    afterChange();
+  }
+
+  map.on("click", function (e) {
+    if (state.drawing) {
+      addDrawPoint(e.latlng);
+    }
+  });
+  map.on("dblclick", function (e) {
+    if (state.drawing) {
+      addDrawPoint(e.latlng);
+      finishDraw();
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!state.drawing) {
+      return;
+    }
+    if (e.key === "Escape") {
+      stopDraw();
+    } else if (e.key === "Backspace" && e.target === document.body) {
+      e.preventDefault();
+      undoDrawPoint();
+    } else if (e.key === "Enter" && e.target === document.body) {
+      finishDraw();
+    }
+  });
+
+  /* ---------- Table ---------- */
+  function visibleRows() {
+    const q = state.search.toLowerCase();
+    const rows = state.suburbs.filter(function (s) {
+      const inArea = state.selected.has(s.c);
+      if (state.show === "sel" && !inArea) {
+        return false;
+      }
+      if (state.show === "out" && inArea) {
+        return false;
+      }
+      if (q && s.n.toLowerCase().indexOf(q) === -1 && s.c.indexOf(q) === -1 && s.k.toLowerCase().indexOf(q) === -1) {
+        return false;
+      }
+      return true;
+    });
+    const key = state.sortKey;
+    const dir = state.sortDir;
+    rows.sort(function (a, b) { return collator.compare(a[key], b[key]) * dir; });
+    return rows;
+  }
+
+  function areasCell(code) {
+    const list = state.areasByCode.get(code) || [];
+    return list.map(function (a) {
+      return "<span class=\"a-dot\" style=\"background:" + areaColor(a) + "\"></span>" + escapeHtml(a.name);
+    }).join("<br>");
+  }
+
+  function renderTable() {
+    const rows = visibleRows();
+    const html = rows.map(function (s) {
+      let cls = "";
+      let checked = "";
+      if (state.selected.has(s.c)) {
+        cls = " class=\"sel\"";
+        checked = " checked";
+      }
+      return "<tr" + cls + "><td><input type=\"checkbox\" data-code=\"" + s.c + "\" aria-label=\"Include " + escapeHtml(s.n) + "\"" + checked + "></td>" +
+        "<td class=\"name\"><button type=\"button\" data-zoom=\"" + s.c + "\">" + escapeHtml(s.n) + "</button></td>" +
+        "<td class=\"council\">" + escapeHtml(s.k) + "</td>" +
+        "<td class=\"areas-cell\">" + areasCell(s.c) + "</td>" +
+        "<td class=\"code\">" + s.c + "</td></tr>";
+    }).join("");
+    el("rows").innerHTML = html;
+    el("tableCount").textContent = rows.length + " shown";
+    const empty = el("tableEmpty");
+    if (rows.length === 0) {
+      empty.hidden = false;
+      if (state.show === "sel" && state.selected.size === 0) {
+        empty.textContent = "No suburbs in this area yet. Click suburbs on the map, draw a shape, or switch to All suburbs and tick them.";
+      } else {
+        empty.textContent = "No suburbs match.";
+      }
+    } else {
+      empty.hidden = true;
+    }
+    document.querySelectorAll("th[data-sort]").forEach(function (th) {
+      const arrow = th.querySelector(".arrow");
+      if (th.getAttribute("data-sort") === state.sortKey) {
+        if (state.sortDir === 1) {
+          arrow.textContent = "▲";
+        } else {
+          arrow.textContent = "▼";
+        }
+      } else {
+        arrow.textContent = "";
+      }
+    });
+  }
+
+  el("rows").addEventListener("change", function (e) {
+    const code = e.target.getAttribute("data-code");
+    if (code) {
+      toggle(code);
+    }
+  });
+  el("rows").addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-zoom]");
+    if (btn) {
+      const layer = state.layerByCode.get(btn.getAttribute("data-zoom"));
+      if (layer) {
+        map.fitBounds(layer.getBounds(), { maxZoom: 13, padding: [30, 30] });
+      }
+    }
+  });
+  document.querySelectorAll("th[data-sort]").forEach(function (th) {
+    th.addEventListener("click", function () {
+      const key = th.getAttribute("data-sort");
+      if (state.sortKey === key) {
+        state.sortDir = -state.sortDir;
+      } else {
+        state.sortKey = key;
+        state.sortDir = 1;
+      }
+      renderTable();
+    });
+  });
+  el("search").addEventListener("input", function (e) {
+    state.search = e.target.value.trim();
+    renderTable();
+  });
+  document.querySelectorAll("input[name=show]").forEach(function (r) {
+    r.addEventListener("change", function () {
+      state.show = r.value;
+      renderTable();
+    });
+  });
+
+  /* ---------- Status + areas list ---------- */
+  function renderStatus() {
+    const s = el("saveStatus");
+    const n = state.selected.size;
+    let text = n + " suburbs";
+    if (isDirty()) {
+      text += " · unsaved changes";
+      s.classList.add("dirty");
+    } else {
+      s.classList.remove("dirty");
+      if (state.currentId) {
+        text += " · saved";
+      }
+    }
+    if (!state.db) {
+      text += " · saving not available in this view";
+    } else if (!state.canWrite) {
+      text += " · view only";
+    }
+    s.textContent = text;
+    const canSave = Boolean(state.db) && state.canWrite;
+    el("btnSave").disabled = !canSave;
+    el("btnSaveNew").disabled = !canSave || !state.currentId;
+    el("btnDelete").disabled = !canSave || !state.currentId;
+  }
+
+  function renderGroupTabs() {
+    const g1 = el("tabGroup1");
+    const g2 = el("tabGroup2");
+    if (g1) { g1.textContent = groupName(1); g1.classList.toggle("active", state.group === 1); g1.setAttribute("aria-pressed", String(state.group === 1)); }
+    if (g2) { g2.textContent = groupName(2); g2.classList.toggle("active", state.group === 2); g2.setAttribute("aria-pressed", String(state.group === 2)); }
+    const l1 = el("importGroup1Label");
+    const l2 = el("importGroup2Label");
+    if (l1) { l1.textContent = groupName(1); }
+    if (l2) { l2.textContent = groupName(2); }
+  }
+
+  function loadGroupNamesOnce(db) {
+    db.doc("meta/groups").get().then(function (snap) {
+      const data = snap.exists ? snap.data() : null;
+      if (data) {
+        if (typeof data.n1 === "string" && data.n1.trim()) { state.groupNames[1] = data.n1; }
+        if (typeof data.n2 === "string" && data.n2.trim()) { state.groupNames[2] = data.n2; }
+      }
+      renderGroupTabs();
+    }).catch(function () { /* keep defaults */ });
+  }
+
+  el("btnRenameGroup").addEventListener("click", function () {
+    if (!state.db) {
+      return;
+    }
+    const current = groupName(state.group);
+    const next = window.prompt("Rename " + current + " to:", current);
+    if (next === null) {
+      return;
+    }
+    const trimmed = next.trim();
+    if (!trimmed) {
+      return;
+    }
+    state.groupNames[state.group] = trimmed;
+    renderGroupTabs();
+    state.db.doc("meta/groups").set({ n1: state.groupNames[1], n2: state.groupNames[2] }).catch(function () {
+      el("saveStatus").textContent = "Could not save the group name. Try again.";
+    });
+  });
+
+  function switchGroup(g) {
+    if (state.group === g) {
+      return;
+    }
+    state.group = g;
+    storeGroup();
+    renderGroupTabs();
+    renderAreas();
+  }
+
+  function renderAreas() {
+    const list = el("areasList");
+    const sorted = sortedAreas();
+    list.innerHTML = sorted.map(function (a) {
+      let cls = "";
+      if (a.id === state.currentId) {
+        cls = " class=\"current\"";
+      }
+      let checked = "";
+      if (state.shown.has(a.id) || a.id === state.currentId) {
+        checked = " checked";
+      }
+      let disabled = "";
+      if (a.id === state.currentId) {
+        disabled = " disabled";
+      }
+      return "<li><label class=\"show-box\" title=\"Show on map\"><input type=\"checkbox\" data-show=\"" + escapeHtml(a.id) + "\"" + checked + disabled +
+        " aria-label=\"Show " + escapeHtml(a.name || "Untitled") + " on map\"></label>" +
+        "<button type=\"button\" data-area=\"" + escapeHtml(a.id) + "\"" + cls + ">" +
+        "<span class=\"a-name\"><span class=\"a-dot\" style=\"background:" + areaColor(a) + "\"></span>" + escapeHtml(a.name || "Untitled") + "</span>" +
+        "<span class=\"a-count\">" + a.codes.length + "</span>" +
+        "<span class=\"a-date\">Updated " + escapeHtml(showDate(a.updated)) + "</span></button></li>";
+    }).join("");
+    el("areasCount").textContent = String(sorted.length);
+    const empty = el("areasEmpty");
+    if (sorted.length === 0) {
+      empty.hidden = false;
+      if (state.db) {
+        empty.textContent = "No saved areas in " + groupName(state.group) + " yet. Pick suburbs on the map, name the area at the top, then Save.";
+      }
+    } else {
+      empty.hidden = true;
+    }
+  }
+
+  function askThen(action) {
+    if (!isDirty()) {
+      action();
+      return;
+    }
+    state.pendingAction = action;
+    el("confirmStrip").hidden = false;
+  }
+
+  el("confirmYes").addEventListener("click", function () {
+    el("confirmStrip").hidden = true;
+    const action = state.pendingAction;
+    state.pendingAction = null;
+    if (action) {
+      action();
+    }
+  });
+  el("confirmNo").addEventListener("click", function () {
+    el("confirmStrip").hidden = true;
+    state.pendingAction = null;
+  });
+
+  function loadArea(area) {
+    state.currentId = area.id;
+    state.savedName = area.name || "";
+    state.savedCodes = codesKey(new Set(area.codes));
+    el("areaName").value = state.savedName;
+    state.color = areaColor(area);
+    state.savedColor = state.color;
+    renderSwatches();
+    clearShape();
+    rebuildOverlay();
+    setSelection(area.codes.filter(function (c) { return state.byCode.has(c); }));
+    if (location.hash !== "#" + area.id) {
+      history.replaceState(null, "", "#" + area.id);
+    }
+    renderAreas();
+    afterChange();
+    fitSelected();
+  }
+
+  function newArea() {
+    state.currentId = null;
+    state.savedName = "";
+    state.savedCodes = "";
+    el("areaName").value = "";
+    state.color = nextFreeColor();
+    state.savedColor = state.color;
+    renderSwatches();
+    setSelection([]);
+    clearShape();
+    rebuildOverlay();
+    history.replaceState(null, "", location.pathname + location.search);
+    renderAreas();
+    afterChange();
+  }
+
+  el("areasList").addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-area]");
+    if (!btn) {
+      return;
+    }
+    const id = btn.getAttribute("data-area");
+    const area = state.areas.find(function (a) { return a.id === id; });
+    if (!area) {
+      return;
+    }
+    if (id === state.currentId) {
+      fitSelected();
+      return;
+    }
+    askThen(function () { loadArea(area); });
+  });
+
+  el("areasList").addEventListener("change", function (e) {
+    const id = e.target.getAttribute("data-show");
+    if (!id) {
+      return;
+    }
+    if (e.target.checked) {
+      state.shown.add(id);
+    } else {
+      state.shown.delete(id);
+    }
+    storeShown();
+    rebuildOverlay();
+  });
+
+  el("btnNew").addEventListener("click", function () { askThen(newArea); });
+  el("areaName").addEventListener("input", renderStatus);
+  el("tabGroup1").addEventListener("click", function () { switchGroup(1); });
+  el("tabGroup2").addEventListener("click", function () { switchGroup(2); });
+
+  async function save(asNew) {
+    if (!state.db) {
+      return;
+    }
+    const name = el("areaName").value.trim();
+    if (!name) {
+      el("saveStatus").textContent = "Type a name for the area first.";
+      el("saveStatus").classList.add("dirty");
+      el("areaName").focus();
+      return;
+    }
+    const codes = Array.from(state.selected).sort();
+    let group = state.group;
+    if (!asNew && state.currentId) {
+      const existing = state.areas.find(function (a) { return a.id === state.currentId; });
+      if (existing) {
+        group = areaGroup(existing);
+      }
+    }
+    const body = { name: name, codes: codes, count: codes.length, updated: todayIso(), color: state.color, group: group };
+    const col = state.db.collection("areas");
+    let ref;
+    if (asNew || !state.currentId) {
+      ref = col.doc();
+    } else {
+      ref = col.doc(state.currentId);
+    }
+    el("btnSave").disabled = true;
+    try {
+      await ref.set(body);
+      state.currentId = ref.id;
+      state.savedName = name;
+      state.savedCodes = codesKey(state.selected);
+      state.savedColor = state.color;
+      history.replaceState(null, "", "#" + ref.id);
+      renderAreas();
+      renderStatus();
+    } catch (err) {
+      let msg = "Could not save. Try again.";
+      if (err && err.code === "invalid_argument") {
+        msg = "You do not have permission to save areas here.";
+        state.canWrite = false;
+      } else if (err && err.code === "quota_exceeded") {
+        msg = "Storage is full. Delete some old areas, then save again.";
+      }
+      renderStatus();
+      el("saveStatus").textContent = msg;
+      el("saveStatus").classList.add("dirty");
+    }
+  }
+
+  el("btnSave").addEventListener("click", function () { save(false); });
+  el("btnSaveNew").addEventListener("click", function () { save(true); });
+
+  let deleteTimer = null;
+  el("btnDelete").addEventListener("click", async function () {
+    const btn = el("btnDelete");
+    if (!state.currentId || !state.db) {
+      return;
+    }
+    if (!btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = "Confirm delete";
+      deleteTimer = setTimeout(function () {
+        btn.classList.remove("armed");
+        btn.textContent = "Delete";
+      }, 4000);
+      return;
+    }
+    clearTimeout(deleteTimer);
+    btn.classList.remove("armed");
+    btn.textContent = "Delete";
+    try {
+      await state.db.collection("areas").doc(state.currentId).delete();
+      newArea();
+    } catch (err) {
+      el("saveStatus").textContent = "Could not delete. Try again.";
+    }
+  });
+
+  /* ---------- Import by suburb name ---------- */
+  const ZONE_SET = ["E1", "N1", "N2", "N3", "OUTOFZONE", "S1", "S1O", "S2", "SE_S"];
+
+  function normName(s) {
+    return String(s || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/^the\s+/, "");
+  }
+
+  let suburbsByName = null;
+  function findSuburbByName(raw) {
+    if (!suburbsByName) {
+      suburbsByName = new Map();
+      state.suburbs.forEach(function (s) { suburbsByName.set(normName(s.n), s); });
+    }
+    return suburbsByName.get(normName(raw)) || null;
+  }
+
+  function splitImportLine(line) {
+    if (line.indexOf("\t") !== -1) {
+      return line.split("\t").map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
+    }
+    if (line.indexOf(",") !== -1) {
+      return line.split(",").map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
+    }
+    return line.split(/\s{2,}/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
+  }
+
+  function parseImportText(text) {
+    const lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l !== ""; });
+    return lines.map(function (line) {
+      const tokens = splitImportLine(line);
+      let postcode = "";
+      let zone = "";
+      const rest = [];
+      tokens.forEach(function (t) {
+        if (!postcode && /^\d{4}$/.test(t)) {
+          postcode = t;
+        } else if (!zone && ZONE_SET.indexOf(t.toUpperCase().replace(/\s+/g, "")) !== -1) {
+          zone = t.toUpperCase().replace(/\s+/g, "");
+        } else {
+          rest.push(t);
+        }
+      });
+      const name = rest.join(" ").trim();
+      const match = name ? findSuburbByName(name) : null;
+      return { raw: line, name: name, zone: zone || "Unzoned", postcode: postcode, code: match ? match.c : null };
+    }).filter(function (r) { return r.name !== ""; });
+  }
+
+  function renderImportPreview(rows) {
+    const tbody = el("importRows");
+    tbody.innerHTML = rows.map(function (r) {
+      const cls = r.code ? "" : " class=\"nomatch\"";
+      return "<tr" + cls + "><td class=\"suburb\">" + escapeHtml(r.name) + "</td><td>" + escapeHtml(r.zone) + "</td><td class=\"postcode\">" + escapeHtml(r.postcode) + "</td></tr>";
+    }).join("");
+    el("importPreviewWrap").hidden = rows.length === 0;
+    const matched = rows.filter(function (r) { return r.code; }).length;
+    el("importSummary").textContent = rows.length === 0 ? "No rows found in the pasted text." :
+      (matched + " of " + rows.length + " suburbs matched. " + (rows.length - matched) + " will be skipped.");
+    el("btnCreateImport").disabled = matched === 0;
+  }
+
+  function openImport() {
+    el("importOverlay").hidden = false;
+    el("importPaste").value = "";
+    el("importPreviewWrap").hidden = true;
+    el("importRows").innerHTML = "";
+    el("importSummary").textContent = "";
+    el("importStatus").textContent = "";
+    el("btnCreateImport").disabled = false;
+    el("importGroup" + state.group).checked = true;
+    el("importPaste").focus();
+  }
+
+  function closeImport() {
+    el("importOverlay").hidden = true;
+    state.importRows = [];
+  }
+
+  el("btnImport").addEventListener("click", openImport);
+  el("importClose").addEventListener("click", closeImport);
+  el("importOverlay").addEventListener("click", function (e) {
+    if (e.target === el("importOverlay")) {
+      closeImport();
+    }
+  });
+  el("btnParseImport").addEventListener("click", function () {
+    state.importRows = parseImportText(el("importPaste").value);
+    renderImportPreview(state.importRows);
+  });
+  el("importPaste").addEventListener("input", function () {
+    state.importRows = [];
+  });
+
+  el("btnCreateImport").addEventListener("click", async function () {
+    if (!state.db) {
+      return;
+    }
+    if (state.importRows.length === 0 && el("importPaste").value.trim() !== "") {
+      state.importRows = parseImportText(el("importPaste").value);
+      renderImportPreview(state.importRows);
+    }
+    const matched = state.importRows.filter(function (r) { return r.code; });
+    if (matched.length === 0) {
+      el("importStatus").textContent = "Paste some rows first (postcode, suburb name, zone).";
+      return;
+    }
+    const targetGroup = el("importGroup2").checked ? 2 : 1;
+    const byZone = new Map();
+    matched.forEach(function (r) {
+      if (!byZone.has(r.zone)) {
+        byZone.set(r.zone, []);
+      }
+      byZone.get(r.zone).push(r.code);
+    });
+    el("btnCreateImport").disabled = true;
+    el("importStatus").textContent = "Creating areas...";
+    const col = state.db.collection("areas");
+    const existingInGroup = state.areas.filter(function (a) { return areaGroup(a) === targetGroup; });
+    const zoneNames = Array.from(byZone.keys());
+    let created = 0;
+    const failed = [];
+    for (let i = 0; i < zoneNames.length; i++) {
+      const zoneName = zoneNames[i];
+      const codes = Array.from(new Set(byZone.get(zoneName))).sort();
+      const existing = existingInGroup.find(function (a) { return a.name === zoneName; });
+      const color = existing ? areaColor(existing) : PALETTE[(existingInGroup.length + created) % PALETTE.length];
+      const ref = existing ? col.doc(existing.id) : col.doc();
+      const body = { name: zoneName, codes: codes, count: codes.length, updated: todayIso(), color: color, group: targetGroup };
+      el("importStatus").textContent = "Saving " + zoneName + " (" + (i + 1) + " of " + zoneNames.length + ")...";
+      try {
+        await ref.set(body);
+        const check = await ref.get();
+        if (!check.exists) {
+          failed.push(zoneName + ": write did not persist (not_found on readback)");
+          continue;
+        }
+        const savedCodes = check.data() && Array.isArray(check.data().codes) ? check.data().codes : [];
+        if (savedCodes.length !== codes.length) {
+          failed.push(zoneName + ": saved but with " + savedCodes.length + " of " + codes.length + " suburbs");
+          continue;
+        }
+        created++;
+      } catch (err) {
+        const code = err && err.code ? err.code : "unknown";
+        const msg = err && err.message ? err.message : String(err);
+        failed.push(zoneName + ": " + code + " - " + msg);
+      }
+    }
+    if (failed.length === 0) {
+      el("importStatus").textContent = "Created and verified " + created + " area" + (created === 1 ? "" : "s") + " in " + groupName(targetGroup) + ".";
+      if (state.group !== targetGroup) {
+        switchGroup(targetGroup);
+      }
+      setTimeout(closeImport, 1500);
+    } else {
+      el("importStatus").textContent = "Saved " + created + " of " + zoneNames.length + ". Problems: " + failed.join(" | ");
+      el("btnCreateImport").disabled = false;
+    }
+  });
+
+  /* ---------- Footer actions ---------- */
+  function selectedSorted() {
+    return state.suburbs.filter(function (s) { return state.selected.has(s.c); })
+      .sort(function (a, b) { return collator.compare(a.n, b.n); });
+  }
+
+  let downloads = null;
+  el("btnCsv").addEventListener("click", async function () {
+    const rows = selectedSorted();
+    if (rows.length === 0) {
+      el("footStatus").textContent = "No suburbs to export.";
+      return;
+    }
+    if (!downloads) {
+      el("footStatus").textContent = "Export is not available in this view. Use Copy list.";
+      return;
+    }
+    const lines = ["Suburb,Council,ABS code"];
+    rows.forEach(function (s) {
+      lines.push("\"" + s.n.replace(/"/g, "\"\"") + "\",\"" + s.k.replace(/"/g, "\"\"") + "\"," + s.c);
+    });
+    const base = (el("areaName").value.trim() || "work-area").replace(/[^A-Za-z0-9 _-]/g, "").trim() || "work-area";
+    try {
+      await downloads.save({ filename: base + ".csv", data: lines.join("\r\n") + "\r\n" });
+      el("footStatus").textContent = "Saved " + rows.length + " suburbs to CSV.";
+    } catch (err) {
+      if (err && err.code === "declined") {
+        el("footStatus").textContent = "";
+      } else {
+        el("footStatus").textContent = "Export failed. Use Copy list instead.";
+      }
+    }
+  });
+
+  /* ---------- PDF export ---------- */
+  function mercY(lat) {
+    const r = lat * Math.PI / 180;
+    return Math.log(Math.tan(Math.PI / 4 + r / 2)) * 180 / Math.PI;
+  }
+
+  function drawAreaMap(rows) {
+    const W = 1800;
+    const H = 1200;
+    let minX = 999;
+    let minY = 999;
+    let maxX = -999;
+    let maxY = -999;
+    rows.forEach(function (s) {
+      minX = Math.min(minX, s.bbox[0]);
+      maxX = Math.max(maxX, s.bbox[2]);
+      minY = Math.min(minY, mercY(s.bbox[1]));
+      maxY = Math.max(maxY, mercY(s.bbox[3]));
+    });
+    const padX = (maxX - minX) * 0.06 + 0.005;
+    const padY = (maxY - minY) * 0.06 + 0.005;
+    minX -= padX;
+    maxX += padX;
+    minY -= padY;
+    maxY += padY;
+    const scale = Math.min(W / (maxX - minX), H / (maxY - minY));
+    const offX = (W - (maxX - minX) * scale) / 2;
+    const offY = (H - (maxY - minY) * scale) / 2;
+    function px(lng, lat) {
+      return [offX + (lng - minX) * scale, H - offY - (mercY(lat) - minY) * scale];
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#dde8ee";
+    ctx.fillRect(0, 0, W, H);
+    const minLat = Math.min(minY, maxY);
+    function tracePolys(geom) {
+      let polys = [];
+      if (geom.type === "Polygon") {
+        polys = [geom.coordinates];
+      } else if (geom.type === "MultiPolygon") {
+        polys = geom.coordinates;
+      }
+      ctx.beginPath();
+      polys.forEach(function (poly) {
+        poly.forEach(function (ring) {
+          ring.forEach(function (c, i) {
+            const p = px(c[0], c[1]);
+            if (i === 0) {
+              ctx.moveTo(p[0], p[1]);
+            } else {
+              ctx.lineTo(p[0], p[1]);
+            }
+          });
+          ctx.closePath();
+        });
+      });
+    }
+    const viewMinLat = Math.atan(Math.sinh(minLat * Math.PI / 180)) * 180 / Math.PI;
+    const viewMaxLat = Math.atan(Math.sinh(maxY * Math.PI / 180)) * 180 / Math.PI;
+    state.suburbs.forEach(function (s) {
+      const b = s.bbox;
+      if (b[0] > maxX || b[2] < minX || b[1] > viewMaxLat || b[3] < viewMinLat) {
+        return;
+      }
+      const inArea = state.selected.has(s.c);
+      tracePolys(s.g);
+      if (inArea) {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = "#f7f6f1";
+        ctx.fill("evenodd");
+        ctx.fillStyle = state.color;
+        ctx.strokeStyle = shade(state.color, 0.6);
+        ctx.lineWidth = 1.6;
+      } else {
+        ctx.fillStyle = "#f7f6f1";
+        ctx.strokeStyle = "#a9b3ae";
+        ctx.lineWidth = 1;
+      }
+      ctx.fill("evenodd");
+      ctx.globalAlpha = 1;
+      ctx.stroke();
+    });
+    if (rows.length <= 160) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      let fontPx = 18;
+      if (rows.length > 60) {
+        fontPx = 14;
+      }
+      ctx.font = "600 " + fontPx + "px Arial, sans-serif";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.fillStyle = "#123a35";
+      rows.forEach(function (s) {
+        const lp = labelPoint(s);
+        const p = px(lp[1], lp[0]);
+        const text = s.n.replace(/ \(WA\)$/, "");
+        ctx.strokeText(text, p[0], p[1]);
+        ctx.fillText(text, p[0], p[1]);
+      });
+    }
+    return canvas.toDataURL("image/jpeg", 0.85);
+  }
+
+  el("btnPdf").addEventListener("click", async function () {
+    const rows = selectedSorted();
+    if (rows.length === 0) {
+      el("footStatus").textContent = "No suburbs to put in a PDF.";
+      return;
+    }
+    if (!downloads) {
+      el("footStatus").textContent = "PDF export is not available in this view.";
+      return;
+    }
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      el("footStatus").textContent = "The PDF tool did not load. Reload the page and try again.";
+      return;
+    }
+    el("footStatus").textContent = "Building PDF...";
+    const name = el("areaName").value.trim() || "Work area";
+    const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(name, margin, margin + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    doc.text(rows.length + " suburbs  ·  " + showDate(todayIso()), margin, margin + 11);
+    doc.setTextColor(0);
+    const img = drawAreaMap(rows);
+    const boxW = pageW - margin * 2;
+    const boxH = pageH - margin * 2 - 16;
+    let imgW = boxW;
+    let imgH = imgW * 1200 / 1800;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * 1800 / 1200;
+    }
+    doc.addImage(img, "JPEG", margin + (boxW - imgW) / 2, margin + 15, imgW, imgH);
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text("Suburb boundaries: ABS ASGS 2021, CC BY 4.0", margin, pageH - 5);
+    doc.setTextColor(0);
+    doc.addPage("a4", "portrait");
+    doc.autoTable({
+      head: [["#", "Suburb", "Council", "ABS code"]],
+      body: rows.map(function (s, i) { return [String(i + 1), s.n, s.k, s.c]; }),
+      startY: margin,
+      margin: { left: margin, right: margin, top: margin, bottom: margin },
+      styles: { fontSize: 9, cellPadding: 1.5 },
+      headStyles: { fillColor: [parseInt(state.color.slice(1, 3), 16), parseInt(state.color.slice(3, 5), 16), parseInt(state.color.slice(5, 7), 16)] },
+      columnStyles: { 0: { cellWidth: 12, halign: "right" }, 3: { cellWidth: 24 } },
+      didDrawPage: function () {
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(name + "  ·  page " + doc.internal.getNumberOfPages(), margin, doc.internal.pageSize.getHeight() - 5);
+        doc.setTextColor(0);
+      }
+    });
+    const base = name.replace(/[^A-Za-z0-9 _-]/g, "").trim() || "work-area";
+    try {
+      await downloads.save({ filename: base + ".pdf", data: doc.output("blob") });
+      el("footStatus").textContent = "Saved PDF with " + rows.length + " suburbs.";
+    } catch (err) {
+      if (err && err.code === "declined") {
+        el("footStatus").textContent = "";
+      } else {
+        el("footStatus").textContent = "PDF export failed. Try again.";
+      }
+    }
+  });
+
+  el("btnCopy").addEventListener("click", function () {
+    const text = selectedSorted().map(function (s) { return s.n; }).join("\n");
+    if (!text) {
+      el("footStatus").textContent = "No suburbs to copy.";
+      return;
+    }
+    navigator.clipboard.writeText(text).then(function () {
+      el("footStatus").textContent = "Copied " + state.selected.size + " suburb names.";
+    }, function () {
+      el("footStatus").textContent = "Copy blocked. Switch to In area and select the table text.";
+    });
+  });
+
+  let clearTimer = null;
+  el("btnClear").addEventListener("click", function () {
+    const btn = el("btnClear");
+    if (state.selected.size === 0) {
+      return;
+    }
+    if (!btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = "Confirm clear";
+      clearTimer = setTimeout(function () {
+        btn.classList.remove("armed");
+        btn.textContent = "Clear all";
+      }, 4000);
+      return;
+    }
+    clearTimeout(clearTimer);
+    btn.classList.remove("armed");
+    btn.textContent = "Clear all";
+    clearShape();
+    setSelection([]);
+    afterChange();
+  });
+
+  /* ---------- Zoom buttons ---------- */
+  function fitSelected() {
+    if (state.selected.size === 0) {
+      return;
+    }
+    let bounds = null;
+    state.selected.forEach(function (c) {
+      const layer = state.layerByCode.get(c);
+      if (!layer) {
+        return;
+      }
+      if (bounds) {
+        bounds.extend(layer.getBounds());
+      } else {
+        bounds = L.latLngBounds(layer.getBounds().getSouthWest(), layer.getBounds().getNorthEast());
+      }
+    });
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+    }
+  }
+  el("zoomWA").addEventListener("click", function () { map.fitBounds(WA_BOUNDS); });
+  el("zoomPerth").addEventListener("click", function () { map.fitBounds(PERTH_BOUNDS); });
+  el("zoomSel").addEventListener("click", fitSelected);
+  el("btnDraw").addEventListener("click", function () {
+    if (state.drawing) {
+      stopDraw();
+    } else {
+      startDraw();
+    }
+  });
+  el("btnFinish").addEventListener("click", finishDraw);
+  el("btnUndoPt").addEventListener("click", undoDrawPoint);
+  el("btnEditShape").addEventListener("click", function () { setEditing(!editing); });
+  el("btnClearShape").addEventListener("click", clearShape);
+  el("btnCancelDraw").addEventListener("click", stopDraw);
+
+  /* ---------- Theme changes ---------- */
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", restyleAll);
+  new MutationObserver(restyleAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  /* ---------- Hash deep link ---------- */
+  function applyHash() {
+    const id = location.hash.replace(/^#/, "");
+    if (!id || id === state.currentId) {
+      return;
+    }
+    const area = state.areas.find(function (a) { return a.id === id; });
+    if (area) {
+      state.hashWanted = "";
+      askThen(function () {
+        if (state.group !== areaGroup(area)) {
+          state.group = areaGroup(area);
+          storeGroup();
+          renderGroupTabs();
+        }
+        loadArea(area);
+      });
+    } else {
+      state.hashWanted = id;
+    }
+  }
+  window.addEventListener("hashchange", applyHash);
+
+  /* ---------- Data store ---------- */
+  async function startStore() {
+    if (!window.claude || !window.claude.use) {
+      el("areasEmpty").textContent = "Saved areas are not available in this view. You can still pick suburbs and copy the list.";
+      renderStatus();
+      return;
+    }
+    const pair = await Promise.all([window.claude.use("db"), window.claude.use("user"), window.claude.use("downloads")]);
+    const db = pair[0];
+    const user = pair[1];
+    downloads = pair[2];
+    if (!db) {
+      el("areasEmpty").textContent = "Saved areas are not available in this view. You can still pick suburbs and copy the list.";
+      renderStatus();
+      return;
+    }
+    state.db = db;
+    loadGroupNamesOnce(db);
+    if (user) {
+      try {
+        const can = await user.can("data.write");
+        if (can === false) {
+          state.canWrite = false;
+        }
+      } catch (err) {
+        state.canWrite = true;
+      }
+    }
+    renderStatus();
+    let loadTimer = setTimeout(function () {
+      if (state.areas.length === 0) {
+        el("areasEmpty").textContent = "Saved areas cannot be reached yet. They will appear when the connection returns.";
+      }
+    }, 10000);
+    db.collection("areas").onSnapshot(function (snap) {
+      if (!snap.metadata.fromCache && loadTimer) {
+        clearTimeout(loadTimer);
+        loadTimer = null;
+      }
+      state.areas = snap.docs.map(function (d) {
+        const body = d.data() || {};
+        let codes = [];
+        if (Array.isArray(body.codes)) {
+          codes = body.codes.map(String);
+        }
+        return { id: d.id, name: String(body.name || ""), codes: codes, updated: String(body.updated || ""), color: String(body.color || ""), group: Number(body.group) === 2 ? 2 : 1 };
+      });
+      if (state.currentId && !state.areas.some(function (a) { return a.id === state.currentId; })) {
+        state.currentId = null;
+        state.savedName = "";
+        state.savedCodes = "";
+      }
+      rebuildOverlay();
+      renderAreas();
+      renderTable();
+      renderStatus();
+      if (state.hashWanted) {
+        applyHash();
+      }
+    }, function () {
+      if (loadTimer) {
+        clearTimeout(loadTimer);
+        loadTimer = null;
+      }
+      el("areasEmpty").hidden = false;
+      el("areasEmpty").textContent = "Saved areas could not be loaded. Reload the page to try again.";
+    });
+  }
+
+  /* ---------- Boot ---------- */
+  async function boot() {
+    loadShown();
+    renderGroupTabs();
+    renderSwatches();
+    renderStatus();
+    el("tableEmpty").hidden = false;
+    el("tableEmpty").textContent = "Loading WA suburbs...";
+    try {
+      const responses = await Promise.all([fetch("wa-suburbs.json"), fetch("wa-councils.json")]);
+      const data = await responses[0].json();
+      const councilData = await responses[1].json();
+      state.councils = councilData.map(function (l) {
+        const feature = { type: "Feature", properties: {}, geometry: l.g };
+        return { c: l.c, n: l.n, g: l.g, feature: feature, bbox: turf.bbox(feature) };
+      });
+      state.councils.forEach(function (l) { state.councilByCode.set(l.c, l); });
+      state.suburbs = data.map(function (s) {
+        const feature = { type: "Feature", properties: {}, geometry: s.g };
+        const l = s.l || [];
+        const k = l.map(function (code) {
+          const council = state.councilByCode.get(code);
+          if (council) {
+            return council.n;
+          }
+          return "";
+        }).filter(Boolean).join(", ");
+        return { c: s.c, n: s.n, g: s.g, l: l, k: k, feature: feature, bbox: turf.bbox(feature) };
+      });
+      state.suburbs.forEach(function (s) { state.byCode.set(s.c, s); });
+      buildLayer();
+      buildCouncilLayer();
+      setPickMode(state.pickMode);
+      renderLabels();
+      renderTable();
+    } catch (err) {
+      el("tableEmpty").textContent = "Could not load the suburb list. Reload the page.";
+    }
+    state.hashWanted = location.hash.replace(/^#/, "");
+    startStore();
+  }
+
+  boot();
+})();
+</script>
+
+</body></html>
