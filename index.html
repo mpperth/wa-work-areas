@@ -900,6 +900,9 @@ tr.sel td { background: var(--accent-soft); }
           <button type="button" id="tabGroup2" aria-pressed="false">Group 2</button>
         </div>
         <button type="button" id="btnRenameGroup" class="btn" title="Rename the current group">Rename</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnShowAllAreas" class="btn">Show all</button>
+        <button type="button" id="btnHideAllAreas" class="btn">Hide all</button>
       </div>
       <div class="col-head">
         <button id="btnDraw" class="btn" type="button">Draw shape</button>
@@ -1977,6 +1980,20 @@ tr.sel td { background: var(--accent-soft); }
     state.db.doc("meta/groups").set({ n1: state.groupNames[1], n2: state.groupNames[2] }).catch(function () {
       el("saveStatus").textContent = "Could not save the group name. Try again.";
     });
+  });
+
+  el("btnShowAllAreas").addEventListener("click", function () {
+    sortedAreas().forEach(function (a) { state.shown.add(a.id); });
+    storeShown();
+    rebuildOverlay();
+    renderAreas();
+  });
+
+  el("btnHideAllAreas").addEventListener("click", function () {
+    sortedAreas().forEach(function (a) { state.shown.delete(a.id); });
+    storeShown();
+    rebuildOverlay();
+    renderAreas();
   });
 
   function switchGroup(g) {
