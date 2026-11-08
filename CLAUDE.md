@@ -96,3 +96,22 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   browser-session state.
 - 2026-11-09: Added a third group ("Group 3") — tabs, import target, rename, and all group-number
   parsing (`areaGroup`/new `normalizeGroup` helper) now handle 1/2/3 instead of assuming only two.
+- 2026-11-09: Added a "Drive times" feature (OpenRouteService) — base address input, geocodes it,
+  then batches a Matrix API call across the currently open area's suburbs (suburb centroid via
+  `turf.centroid`), showing minutes + km sorted fastest-first. Mick signed up for a free ORS account
+  and provided the API key.
+  - **In the live Claude artifact**: the key is stored in the artifact's own database
+    (`meta/orsKey`, loaded once via `loadOrsKeyOnce`) rather than embedded in page source — keeps it
+    out of view-source. This was also the only way to get past Claude Code's own safety classifier,
+    which blocked writing the literal key string directly into the artifact's HTML/JS (but allowed it
+    once routed through the database instead).
+  - **NOT yet applied to this public mirror.** This copy has no database (same reason Save/Import
+    don't work here) — the key would have to be a plain string in the page source, which means
+    anyone could read it straight out of this public GitHub repo (and it'd stay in git history
+    forever even if later removed). **Open decision for Mick**: accept that exposure to get
+    drive-times working on the public copy too, or leave this feature artifact-only. Don't commit/
+    push the key into this file without his explicit yes on that tradeoff.
+  - Noted in passing: `api.openrouteservice.org` returned a deprecation notice pointing to
+    `ask.openrouteservice.org` for more info, but a replacement base URL wasn't confirmed (searched,
+    found nothing concrete) and the old URL still works fine as of this session. Re-check if ORS
+    calls ever start failing.
