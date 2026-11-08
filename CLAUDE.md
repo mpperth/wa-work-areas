@@ -100,5 +100,5 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   artifact (drive times, Group 3, all home fixes) + `loadStaticAreasFallback()`. Drive times here: no key in the
   page (Mick's choice, option B). Each person pastes the ORS key once into the "Drive-time key" box; kept in
   their browser (localStorage `wa-work-areas-ors-key`); a 401/403 clears it and asks again. Mick sends staff
-  the key privately. Known: "This area has unsaved changes" strip shows after opening an area here (comes from
-  the artifact code) - not yet looked at.
+  the key privately. "Unsaved changes" strip always showing: FIXED 09 Nov (CSS `.confirm-strip[hidden]{display:none}`,
+  `display:flex` was overriding `hidden`); same fix in the live artifact (version 31).
