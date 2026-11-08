@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WA Work Areas</title>
 <style>html,body{margin:0}</style>
+<title>WA Work Areas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -869,7 +869,6 @@ tr.sel td { background: var(--accent-soft); }
 </style>
 </head>
 <body>
-
 <div class="app">
   <div class="toolbar">
     <h1>WA Work Areas</h1>
@@ -882,6 +881,7 @@ tr.sel td { background: var(--accent-soft); }
     <button id="btnSaveNew" class="btn" type="button">Save as new</button>
     <button id="btnNew" class="btn" type="button">New area</button>
     <button id="btnDelete" class="btn danger" type="button">Delete</button>
+    <button id="btnDriveTimes" class="btn" type="button">Drive times</button>
     <span id="saveStatus" class="status"></span>
   </div>
 
@@ -1040,6 +1040,36 @@ tr.sel td { background: var(--accent-soft); }
       </div>
     </div>
   </div>
+
+  <div id="driveTimesOverlay" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="driveTimesTitle">
+      <div class="modal-head">
+        <h3 id="driveTimesTitle">Drive times</h3>
+        <button id="driveTimesClose" class="btn" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-hint">Drive time from your base address to every suburb in the currently open area, using real road routing (no live traffic).</div>
+        <div class="ghost-pair">
+          <label for="baseAddress">Base address</label>
+          <input id="baseAddress" class="ghost" type="text" placeholder="e.g. 123 Main St, Perth WA" style="width:320px" autocomplete="off">
+        </div>
+        <div class="ghost-pair" id="orsKeyRow" hidden>
+          <label for="orsKeyInput">Drive-time key</label>
+          <input id="orsKeyInput" class="ghost" type="password" placeholder="Paste the key Mick sent you" style="width:320px" autocomplete="off">
+        </div>
+        <div id="driveTimesPreviewWrap" class="import-table-wrap" hidden>
+          <table class="import-table">
+            <thead><tr><th>Suburb</th><th>Drive time</th><th>Distance</th></tr></thead>
+            <tbody id="driveTimesRows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="btnCalcDriveTimes" class="btn primary" type="button">Calculate</button>
+        <span id="driveTimesStatus" class="status"></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -1083,7 +1113,9 @@ tr.sel td { background: var(--accent-soft); }
     areasByCode: new Map(),
     group: 1,
     importRows: [],
-    groupNames: { 1: "Group 1", 2: "Group 2", 3: "Group 3" }
+    groupNames: { 1: "Group 1", 2: "Group 2", 3: "Group 3" },
+    baseAddress: "",
+    baseCoord: null
   };
 
   const el = function (id) { return document.getElementById(id); };
@@ -2024,6 +2056,18 @@ tr.sel td { background: var(--accent-soft); }
     }).catch(function () { /* keep defaults */ });
   }
 
+  function loadBaseAddressOnce(db) {
+    db.doc("meta/base").get().then(function (snap) {
+      const data = snap.exists ? snap.data() : null;
+      if (data && typeof data.address === "string") {
+        state.baseAddress = data.address;
+        if (typeof data.lng === "number" && typeof data.lat === "number") {
+          state.baseCoord = [data.lng, data.lat];
+        }
+      }
+    }).catch(function () { /* keep defaults */ });
+  }
+
   el("btnRenameGroup").addEventListener("click", function () {
     if (!state.db) {
       return;
@@ -2060,6 +2104,165 @@ tr.sel td { background: var(--accent-soft); }
   el("renameGroupInput").addEventListener("keydown", function (e) {
     if (e.key === "Enter") { saveRenameGroup(); }
     if (e.key === "Escape") { closeRenameGroup(); }
+  });
+
+  /* ---------- Drive times (OpenRouteService) ---------- */
+  let orsApiKey = null;
+  function loadOrsKeyOnce(db) {
+    db.doc("meta/orsKey").get().then(function (snap) {
+      const data = snap.exists ? snap.data() : null;
+      if (data && typeof data.key === "string") {
+        orsApiKey = data.key;
+      }
+    }).catch(function () { /* key not available */ });
+  }
+  const DRIVE_TIME_BATCH = 40;
+
+  async function geocodeAddress(address) {
+    if (!orsApiKey) {
+      throw new Error("Drive-time lookup isn't set up yet. Reload the page and try again.");
+    }
+    const url = "https://api.openrouteservice.org/geocode/search?api_key=" + encodeURIComponent(orsApiKey) +
+      "&text=" + encodeURIComponent(address) + "&boundary.country=AU&size=1";
+    const res = await fetch(url);
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        orsApiKey = null;
+        storeLocalOrsKey("");
+        el("orsKeyInput").value = "";
+        el("orsKeyRow").hidden = false;
+        throw new Error("That drive-time key was not accepted. Paste it again.");
+      }
+      throw new Error("Geocoding failed (" + res.status + ")");
+    }
+    const body = await res.json();
+    const feature = body.features && body.features[0];
+    if (!feature) {
+      throw new Error("Could not find that address.");
+    }
+    return feature.geometry.coordinates;
+  }
+
+  async function matrixBatch(baseCoord, destCoords) {
+    const res = await fetch("https://api.openrouteservice.org/v2/matrix/driving-car", {
+      method: "POST",
+      headers: {
+        "Authorization": orsApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        locations: [baseCoord].concat(destCoords),
+        sources: [0],
+        destinations: destCoords.map(function (c, i) { return i + 1; }),
+        metrics: ["duration", "distance"],
+        units: "km"
+      })
+    });
+    if (!res.ok) {
+      throw new Error("Drive time lookup failed (" + res.status + ")");
+    }
+    return res.json();
+  }
+
+  function formatMinutes(seconds) {
+    if (seconds == null) {
+      return "—";
+    }
+    return Math.round(seconds / 60) + " min";
+  }
+
+  function formatKm(km) {
+    if (km == null) {
+      return "—";
+    }
+    return km.toFixed(1) + " km";
+  }
+
+  function openDriveTimes() {
+    el("baseAddress").value = state.baseAddress;
+    el("driveTimesStatus").textContent = "";
+    el("driveTimesPreviewWrap").hidden = true;
+    el("driveTimesRows").innerHTML = "";
+    el("orsKeyRow").hidden = Boolean(orsApiKey);
+    el("driveTimesOverlay").hidden = false;
+    el("baseAddress").focus();
+  }
+  function closeDriveTimes() {
+    el("driveTimesOverlay").hidden = true;
+  }
+  el("btnDriveTimes").addEventListener("click", openDriveTimes);
+  el("driveTimesClose").addEventListener("click", closeDriveTimes);
+  el("driveTimesOverlay").addEventListener("click", function (e) {
+    if (e.target === el("driveTimesOverlay")) { closeDriveTimes(); }
+  });
+
+  el("btnCalcDriveTimes").addEventListener("click", async function () {
+    const address = el("baseAddress").value.trim();
+    if (!address) {
+      el("driveTimesStatus").textContent = "Enter a base address first.";
+      return;
+    }
+    if (!state.currentId || state.selected.size === 0) {
+      el("driveTimesStatus").textContent = "Open or select an area with suburbs in it first.";
+      return;
+    }
+    if (!orsApiKey) {
+      const typedKey = el("orsKeyInput").value.trim();
+      if (!typedKey) {
+        el("orsKeyRow").hidden = false;
+        el("driveTimesStatus").textContent = "Paste the drive-time key first (ask Mick for it).";
+        return;
+      }
+      orsApiKey = typedKey;
+      storeLocalOrsKey(typedKey);
+      el("orsKeyRow").hidden = true;
+    }
+    const btn = el("btnCalcDriveTimes");
+    btn.disabled = true;
+    try {
+      let baseCoord = state.baseCoord;
+      if (address !== state.baseAddress || !baseCoord) {
+        el("driveTimesStatus").textContent = "Finding that address...";
+        baseCoord = await geocodeAddress(address);
+      }
+      state.baseAddress = address;
+      state.baseCoord = baseCoord;
+      if (state.db) {
+        state.db.doc("meta/base").set({ address: address, lng: baseCoord[0], lat: baseCoord[1] }).catch(function () { /* non-fatal */ });
+      }
+
+      const targets = Array.from(state.selected).map(function (code) { return state.byCode.get(code); }).filter(Boolean);
+      const results = [];
+      for (let i = 0; i < targets.length; i += DRIVE_TIME_BATCH) {
+        const chunk = targets.slice(i, i + DRIVE_TIME_BATCH);
+        el("driveTimesStatus").textContent = "Calculating " + Math.min(i + DRIVE_TIME_BATCH, targets.length) + " of " + targets.length + "...";
+        const destCoords = chunk.map(function (s) { return turf.centroid(s.feature).geometry.coordinates; });
+        const data = await matrixBatch(baseCoord, destCoords);
+        const durations = data.durations && data.durations[0];
+        const distances = data.distances && data.distances[0];
+        chunk.forEach(function (s, idx) {
+          results.push({
+            name: s.n,
+            seconds: durations ? durations[idx] : null,
+            km: distances ? distances[idx] : null
+          });
+        });
+      }
+      results.sort(function (a, b) {
+        if (a.seconds == null) { return 1; }
+        if (b.seconds == null) { return -1; }
+        return a.seconds - b.seconds;
+      });
+      el("driveTimesRows").innerHTML = results.map(function (r) {
+        return "<tr><td>" + escapeHtml(r.name) + "</td><td>" + formatMinutes(r.seconds) + "</td><td>" + formatKm(r.km) + "</td></tr>";
+      }).join("");
+      el("driveTimesPreviewWrap").hidden = false;
+      el("driveTimesStatus").textContent = "Done — " + results.length + " suburbs.";
+    } catch (err) {
+      el("driveTimesStatus").textContent = err && err.message ? err.message : "Something went wrong. Try again.";
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   el("btnShowAllAreas").addEventListener("click", function () {
@@ -2310,7 +2513,7 @@ tr.sel td { background: var(--accent-soft); }
   const ZONE_SET = ["E1", "N1", "N2", "N3", "OUTOFZONE", "S1", "S1O", "S2", "SE_S"];
 
   function normName(s) {
-    return String(s || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/^the\s+/, "");
+    return String(s || "").trim().toLowerCase().replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+/g, " ").replace(/^the\s+/, "");
   }
 
   let suburbsByName = null;
@@ -2440,6 +2643,39 @@ tr.sel td { background: var(--accent-soft); }
   });
   el("importPaste").addEventListener("input", function () {
     state.importRows = [];
+  });
+
+  /* ---------- drag-and-drop a .csv/.txt file onto the import box ---------- */
+  function loadImportFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      el("importPaste").value = String(reader.result || "");
+      state.importRows = parseImportText(el("importPaste").value);
+      renderImportPreview(state.importRows);
+      el("importStatus").textContent = "Loaded \"" + file.name + "\".";
+    };
+    reader.onerror = function () {
+      el("importStatus").textContent = "Couldn't read that file — try pasting the text instead.";
+    };
+    reader.readAsText(file);
+  }
+  ["dragenter", "dragover"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function (e) {
+      e.preventDefault();
+      el("importPaste").classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function () {
+      el("importPaste").classList.remove("dragover");
+    });
+  });
+  el("importPaste").addEventListener("drop", function (e) {
+    e.preventDefault();
+    el("importPaste").classList.remove("dragover");
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    loadImportFile(file);
   });
 
   el("btnCreateImport").addEventListener("click", async function () {
@@ -2608,6 +2844,7 @@ tr.sel td { background: var(--accent-soft); }
           el("footStatus").textContent = "";
           return;
         }
+        /* fall through to the copy/paste modal below */
       }
     }
     openExportModal("Export all saved areas (every group)", rows);
@@ -2627,39 +2864,6 @@ tr.sel td { background: var(--accent-soft); }
       el("exportAllText").select();
       el("exportAllStatus").textContent = "Couldn't copy automatically — text is selected, press Ctrl+C.";
     }
-  });
-
-  /* ---------- drag-and-drop a .csv/.txt file onto the import box ---------- */
-  function loadImportFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function () {
-      el("importPaste").value = String(reader.result || "");
-      state.importRows = parseImportText(el("importPaste").value);
-      renderImportPreview(state.importRows);
-      el("importStatus").textContent = "Loaded \"" + file.name + "\".";
-    };
-    reader.onerror = function () {
-      el("importStatus").textContent = "Couldn't read that file — try pasting the text instead.";
-    };
-    reader.readAsText(file);
-  }
-  ["dragenter", "dragover"].forEach(function (evt) {
-    el("importPaste").addEventListener(evt, function (e) {
-      e.preventDefault();
-      el("importPaste").classList.add("dragover");
-    });
-  });
-  ["dragleave", "dragend"].forEach(function (evt) {
-    el("importPaste").addEventListener(evt, function () {
-      el("importPaste").classList.remove("dragover");
-    });
-  });
-  el("importPaste").addEventListener("drop", function (e) {
-    e.preventDefault();
-    el("importPaste").classList.remove("dragover");
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    loadImportFile(file);
   });
 
   /* ---------- PDF export ---------- */
@@ -2941,7 +3145,31 @@ tr.sel td { background: var(--accent-soft); }
   window.addEventListener("hashchange", applyHash);
 
   /* ---------- Data store ---------- */
+  /* Public mirror only: no database here, so the drive-times key is typed in once by each person
+     and kept in their own browser (Mick 2026-11-09: never put the key in this public page). */
+  const ORS_KEY_STORE = "wa-work-areas-ors-key";
+
+  function loadLocalOrsKey() {
+    try {
+      const k = localStorage.getItem(ORS_KEY_STORE);
+      if (k) {
+        orsApiKey = k;
+      }
+    } catch (err) {
+      /* no browser storage: key is asked for each time */
+    }
+  }
+
+  function storeLocalOrsKey(k) {
+    try {
+      localStorage.setItem(ORS_KEY_STORE, k);
+    } catch (err) {
+      /* keep for this visit only */
+    }
+  }
+
   async function loadStaticAreasFallback() {
+    loadLocalOrsKey();
     try {
       const res = await fetch("areas-data.json");
       const list = await res.json();
@@ -2978,6 +3206,8 @@ tr.sel td { background: var(--accent-soft); }
     }
     state.db = db;
     loadGroupNamesOnce(db);
+    loadBaseAddressOnce(db);
+    loadOrsKeyOnce(db);
     if (user) {
       try {
         const can = await user.can("data.write");
@@ -3074,5 +3304,4 @@ tr.sel td { background: var(--accent-soft); }
   boot();
 })();
 </script>
-
 </body></html>

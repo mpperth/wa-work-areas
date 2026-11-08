@@ -96,3 +96,9 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   browser-session state.
 - 2026-11-09: Added a third group ("Group 3") — tabs, import target, rename, and all group-number
   parsing (`areaGroup`/new `normalizeGroup` helper) now handle 1/2/3 instead of assuming only two.
+- 2026-11-09 (work Mac): Snapshot refreshed to 13 areas (adds 4 Group 2). `index.html` rebuilt from the live
+  artifact (drive times, Group 3, all home fixes) + `loadStaticAreasFallback()`. Drive times here: no key in the
+  page (Mick's choice, option B). Each person pastes the ORS key once into the "Drive-time key" box; kept in
+  their browser (localStorage `wa-work-areas-ors-key`); a 401/403 clears it and asks again. Mick sends staff
+  the key privately. Known: "This area has unsaved changes" strip shows after opening an area here (comes from
+  the artifact code) - not yet looked at.
