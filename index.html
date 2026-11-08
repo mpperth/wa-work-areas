@@ -847,6 +847,7 @@ tr.sel td { background: var(--accent-soft); }
 .modal-body { padding: 12px 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .modal-foot { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .import-paste { width: 100%; min-height: 110px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); padding: 8px; font-family: var(--font-mono); font-size: 12px; resize: vertical; box-sizing: border-box; }
+.import-paste.dragover { border-color: var(--accent); border-style: dashed; background: var(--accent-soft); }
 .import-hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .import-table-wrap { border: 1px solid var(--line); border-radius: 4px; max-height: 260px; overflow: auto; }
 .import-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -966,6 +967,7 @@ tr.sel td { background: var(--accent-soft); }
         <button id="btnPdf" class="btn" type="button">Export PDF</button>
         <button id="btnCsv" class="btn" type="button">Export CSV</button>
         <button id="btnCopy" class="btn" type="button">Copy list</button>
+        <button id="btnExportAll" class="btn primary" type="button">Export All</button>
         <button id="btnClear" class="btn danger" type="button">Clear all</button>
         <span id="footStatus" class="status"></span>
       </div>
@@ -980,9 +982,9 @@ tr.sel td { background: var(--accent-soft); }
       </div>
       <div class="modal-body">
         <div class="import-hint">
-          Paste rows of postcode, suburb name and zone (one per line, as copied from a spreadsheet). The suburb name is matched against the map's own suburb list. New areas are created into whichever group is selected below &mdash; one area per zone.
+          Paste rows of postcode, suburb name and zone (one per line, as copied from a spreadsheet), or drag and drop a .csv/.txt file onto the box below. The suburb name is matched against the map's own suburb list. New areas are created into whichever group is selected below &mdash; one area per zone.
         </div>
-        <textarea id="importPaste" class="import-paste" placeholder="6069&#9;Carabooda&#9;N1&#10;6066&#9;Wanneroo&#9;N2"></textarea>
+        <textarea id="importPaste" class="import-paste" placeholder="6069&#9;Carabooda&#9;N1&#10;6066&#9;Wanneroo&#9;N2 (or drop a .csv/.txt file here)"></textarea>
         <div class="radio-row" role="radiogroup" aria-label="Import into group">
           <label><input type="radio" name="importGroup" id="importGroup1" value="1"> <span id="importGroup1Label">Group 1</span></label>
           <label><input type="radio" name="importGroup" id="importGroup2" value="2" checked> <span id="importGroup2Label">Group 2</span></label>
@@ -1000,6 +1002,23 @@ tr.sel td { background: var(--accent-soft); }
       <div class="modal-foot">
         <button id="btnCreateImport" class="btn primary" type="button">Create areas</button>
         <span id="importStatus" class="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportAllOverlay" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="exportAllTitle">
+      <div class="modal-head">
+        <h3 id="exportAllTitle">Export</h3>
+        <button id="exportAllClose" class="btn" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-hint" id="exportAllHint"></div>
+        <textarea id="exportAllText" class="import-paste" style="min-height:320px" readonly></textarea>
+      </div>
+      <div class="modal-foot">
+        <button id="btnExportAllCopy" class="btn primary" type="button">Copy to clipboard</button>
+        <span id="exportAllStatus" class="status"></span>
       </div>
     </div>
   </div>
@@ -2223,11 +2242,36 @@ tr.sel td { background: var(--accent-soft); }
 
   let suburbsByName = null;
   function findSuburbByName(raw) {
-    if (!suburbsByName) {
+    if (!suburbsByName || (suburbsByName.size === 0 && state.suburbs.length > 0)) {
       suburbsByName = new Map();
       state.suburbs.forEach(function (s) { suburbsByName.set(normName(s.n), s); });
     }
     return suburbsByName.get(normName(raw)) || null;
+  }
+
+  function splitCsvLine(line) {
+    const out = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === "\"") {
+          if (line[i + 1] === "\"") { cur += "\""; i++; } else { inQuotes = false; }
+        } else {
+          cur += ch;
+        }
+      } else if (ch === "\"") {
+        inQuotes = true;
+      } else if (ch === ",") {
+        out.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur.trim());
+    return out;
   }
 
   function splitImportLine(line) {
@@ -2235,28 +2279,46 @@ tr.sel td { background: var(--accent-soft); }
       return line.split("\t").map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
     }
     if (line.indexOf(",") !== -1) {
-      return line.split(",").map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
+      return splitCsvLine(line).filter(function (t) { return t !== ""; });
     }
     return line.split(/\s{2,}/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ""; });
   }
 
   function parseImportText(text) {
-    const lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l !== ""; });
-    return lines.map(function (line) {
+    const rawLines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l !== ""; });
+    if (rawLines.length === 0) return [];
+
+    /* If the first row looks like a header (e.g. from our own "Export" feature:
+       Suburb,Council,ABS code,Zone,Group), read columns by name instead of guessing. */
+    const headerTokens = splitImportLine(rawLines[0]).map(function (t) { return t.toLowerCase(); });
+    const suburbIdx = headerTokens.indexOf("suburb");
+    const useHeader = suburbIdx !== -1;
+    const zoneIdx = headerTokens.indexOf("zone");
+    const postcodeIdx = headerTokens.indexOf("postcode");
+    const dataLines = useHeader ? rawLines.slice(1) : rawLines;
+
+    return dataLines.map(function (line) {
       const tokens = splitImportLine(line);
       let postcode = "";
       let zone = "";
-      const rest = [];
-      tokens.forEach(function (t) {
-        if (!postcode && /^\d{4}$/.test(t)) {
-          postcode = t;
-        } else if (!zone && ZONE_SET.indexOf(t.toUpperCase().replace(/\s+/g, "")) !== -1) {
-          zone = t.toUpperCase().replace(/\s+/g, "");
-        } else {
-          rest.push(t);
-        }
-      });
-      const name = rest.join(" ").trim();
+      let name = "";
+      if (useHeader) {
+        name = (tokens[suburbIdx] || "").trim();
+        zone = zoneIdx !== -1 ? (tokens[zoneIdx] || "").trim().toUpperCase().replace(/\s+/g, "") : "";
+        postcode = postcodeIdx !== -1 ? (tokens[postcodeIdx] || "").trim() : "";
+      } else {
+        const rest = [];
+        tokens.forEach(function (t) {
+          if (!postcode && /^\d{4}$/.test(t)) {
+            postcode = t;
+          } else if (!zone && ZONE_SET.indexOf(t.toUpperCase().replace(/\s+/g, "")) !== -1) {
+            zone = t.toUpperCase().replace(/\s+/g, "");
+          } else {
+            rest.push(t);
+          }
+        });
+        name = rest.join(" ").trim();
+      }
       const match = name ? findSuburbByName(name) : null;
       return { raw: line, name: name, zone: zone || "Unzoned", postcode: postcode, code: match ? match.c : null };
     }).filter(function (r) { return r.name !== ""; });
@@ -2388,7 +2450,9 @@ tr.sel td { background: var(--accent-soft); }
       return;
     }
     if (!downloads) {
-      el("footStatus").textContent = "Export is not available in this view. Use Copy list.";
+      openExportModal("Export CSV (current selection)", rows.map(function (s) {
+        return { suburb: s.n, council: s.k, code: s.c, zone: "", group: "" };
+      }));
       return;
     }
     const lines = ["Suburb,Council,ABS code"];
@@ -2403,9 +2467,121 @@ tr.sel td { background: var(--accent-soft); }
       if (err && err.code === "declined") {
         el("footStatus").textContent = "";
       } else {
-        el("footStatus").textContent = "Export failed. Use Copy list instead.";
+        openExportModal("Export CSV (current selection)", rows.map(function (s) {
+          return { suburb: s.n, council: s.k, code: s.c, zone: "", group: "" };
+        }));
       }
     }
+  });
+
+  /* ---------- Export All (reliable copy/paste fallback — works even when file downloads are blocked) ---------- */
+  function csvEscape(v) {
+    return "\"" + String(v == null ? "" : v).replace(/"/g, "\"\"") + "\"";
+  }
+
+  function allAreasRows() {
+    const rows = [];
+    state.areas.slice().sort(function (a, b) { return collator.compare(a.name, b.name); }).forEach(function (a) {
+      a.codes.forEach(function (c) {
+        const s = state.byCode.get(c);
+        rows.push({
+          suburb: s ? s.n : c,
+          council: s ? s.k : "",
+          code: c,
+          zone: a.name,
+          group: areaGroup(a)
+        });
+      });
+    });
+    return rows;
+  }
+
+  function openExportModal(title, rows) {
+    const lines = ["Suburb,Council,ABS code,Zone,Group"];
+    rows.forEach(function (r) {
+      lines.push([csvEscape(r.suburb), csvEscape(r.council), r.code, csvEscape(r.zone), r.group].join(","));
+    });
+    el("exportAllTitle").textContent = title;
+    el("exportAllHint").textContent = rows.length + " suburb" + (rows.length === 1 ? "" : "s") + ". Click \"Copy to clipboard\", or select all the text below yourself (Ctrl+A, Ctrl+C), then paste it wherever you need it.";
+    el("exportAllText").value = lines.join("\r\n");
+    el("exportAllStatus").textContent = "";
+    el("exportAllOverlay").hidden = false;
+    el("exportAllText").focus();
+    el("exportAllText").select();
+  }
+
+  el("btnExportAll").addEventListener("click", async function () {
+    const rows = allAreasRows();
+    if (rows.length === 0) {
+      el("footStatus").textContent = "No suburbs to export.";
+      return;
+    }
+    if (downloads) {
+      const lines = ["Suburb,Council,ABS code,Zone,Group"];
+      rows.forEach(function (r) {
+        lines.push([csvEscape(r.suburb), csvEscape(r.council), r.code, csvEscape(r.zone), r.group].join(","));
+      });
+      try {
+        await downloads.save({ filename: "wa-work-areas-all.csv", data: lines.join("\r\n") + "\r\n" });
+        el("footStatus").textContent = "Saved " + rows.length + " suburbs to CSV.";
+        return;
+      } catch (err) {
+        if (err && err.code === "declined") {
+          el("footStatus").textContent = "";
+          return;
+        }
+      }
+    }
+    openExportModal("Export all saved areas (every group)", rows);
+  });
+  el("exportAllClose").addEventListener("click", function () {
+    el("exportAllOverlay").hidden = true;
+  });
+  el("exportAllOverlay").addEventListener("click", function (e) {
+    if (e.target === el("exportAllOverlay")) { el("exportAllOverlay").hidden = true; }
+  });
+  el("btnExportAllCopy").addEventListener("click", async function () {
+    const text = el("exportAllText").value;
+    try {
+      await navigator.clipboard.writeText(text);
+      el("exportAllStatus").textContent = "Copied to clipboard.";
+    } catch (err) {
+      el("exportAllText").select();
+      el("exportAllStatus").textContent = "Couldn't copy automatically — text is selected, press Ctrl+C.";
+    }
+  });
+
+  /* ---------- drag-and-drop a .csv/.txt file onto the import box ---------- */
+  function loadImportFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      el("importPaste").value = String(reader.result || "");
+      state.importRows = parseImportText(el("importPaste").value);
+      renderImportPreview(state.importRows);
+      el("importStatus").textContent = "Loaded \"" + file.name + "\".";
+    };
+    reader.onerror = function () {
+      el("importStatus").textContent = "Couldn't read that file — try pasting the text instead.";
+    };
+    reader.readAsText(file);
+  }
+  ["dragenter", "dragover"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function (e) {
+      e.preventDefault();
+      el("importPaste").classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function () {
+      el("importPaste").classList.remove("dragover");
+    });
+  });
+  el("importPaste").addEventListener("drop", function (e) {
+    e.preventDefault();
+    el("importPaste").classList.remove("dragover");
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    loadImportFile(file);
   });
 
   /* ---------- PDF export ---------- */

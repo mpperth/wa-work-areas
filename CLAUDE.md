@@ -68,3 +68,15 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   zones before their codes are trustworthy. N3/OutOfZone/S1O/SE_S are confirmed complete.
 - "Two Rocks to Bouvard" was mentioned by Mick as the main working area but no action was taken
   yet - unclear if he wants a new saved area created for it or it's just context.
+- 2026-11-08: Added "Export All" button (every saved area, both groups) to both the artifact and
+  this mirror — tries a real file download first via the `downloads` capability, falls back to a
+  copyable text modal when that's unavailable (always the case on this read-only mirror, since it
+  has no Claude capabilities at all — that's expected, not a bug).
+- 2026-11-08: Added drag-and-drop file support to the "Import by suburb name" box (drop a .csv/.txt
+  file instead of pasting) in both copies.
+- 2026-11-08: Fixed two real pre-existing import bugs found while testing, in both copies:
+  (1) `findSuburbByName`'s lookup cache could permanently lock in as empty if Preview was clicked
+  before the suburb list finished loading — now self-heals if the cache is empty but suburbs have
+  since loaded. (2) The import parser couldn't read back its own "Export" output (quoted CSV with
+  a header row: Suburb,Council,ABS code,Zone,Group) — it only understood plain postcode/suburb/zone
+  rows. Added proper quoted-CSV splitting and header-row detection so Export → Import now round-trips.
