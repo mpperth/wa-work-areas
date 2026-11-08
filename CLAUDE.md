@@ -80,3 +80,19 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   since loaded. (2) The import parser couldn't read back its own "Export" output (quoted CSV with
   a header row: Suburb,Council,ABS code,Zone,Group) — it only understood plain postcode/suburb/zone
   rows. Added proper quoted-CSV splitting and header-row detection so Export → Import now round-trips.
+- 2026-11-09: Fixed "Rename" group button — it used `window.prompt()`, which the Claude artifact
+  sandbox silently blocks (same class of bug as the earlier Export CSV issue). Replaced with a proper
+  in-page popup.
+- 2026-11-09: Fixed a layout bug where the "Click picks" row (Suburb/Council radios, All WA/Perth/Fit
+  selected buttons) could overflow past the right panel's edge with no way to reach the cut-off
+  buttons. Fixed by making `.radio-row` wrap instead of overflow (NOT by hiding page scroll — tried
+  that first, it made things worse by removing the only way to reach the clipped content).
+- 2026-11-09: Fixed two real bugs in group switching, found via a live screenshot showing Group 2's
+  panel with a Group 1 area ("OutOfZone") fully loaded/highlighted on the map: (1) switching groups
+  via the tabs never ran the same "unsaved changes" safety check used everywhere else — now gated
+  through `askThen()` like loadArea. (2) switchGroup() never reset the currently-open area even when
+  it belonged to the group being left — now calls `newArea()` in that case. Confirmed via direct `db`
+  read that no real area data was ever corrupted; the contamination only existed in unsaved
+  browser-session state.
+- 2026-11-09: Added a third group ("Group 3") — tabs, import target, rename, and all group-number
+  parsing (`areaGroup`/new `normalizeGroup` helper) now handle 1/2/3 instead of assuming only two.
