@@ -105,13 +105,20 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
     out of view-source. This was also the only way to get past Claude Code's own safety classifier,
     which blocked writing the literal key string directly into the artifact's HTML/JS (but allowed it
     once routed through the database instead).
-  - **NOT yet applied to this public mirror.** This copy has no database (same reason Save/Import
-    don't work here) — the key would have to be a plain string in the page source, which means
-    anyone could read it straight out of this public GitHub repo (and it'd stay in git history
-    forever even if later removed). **Open decision for Mick**: accept that exposure to get
-    drive-times working on the public copy too, or leave this feature artifact-only. Don't commit/
-    push the key into this file without his explicit yes on that tradeoff.
+  - Decided by Mick (option B, see work Mac entry below): the public mirror instead has each staff
+    member paste the ORS key once into their own browser, never stored in page source or git.
   - Noted in passing: `api.openrouteservice.org` returned a deprecation notice pointing to
     `ask.openrouteservice.org` for more info, but a replacement base URL wasn't confirmed (searched,
     found nothing concrete) and the old URL still works fine as of this session. Re-check if ORS
     calls ever start failing.
+- 2026-11-09 (work Mac): Snapshot refreshed to 13 areas (adds 4 Group 2). `index.html` rebuilt from the live
+  artifact (drive times, Group 3, all home fixes) + `loadStaticAreasFallback()`. Drive times here: no key in the
+  page (Mick's choice, option B). Each person pastes the ORS key once into the "Drive-time key" box; kept in
+  their browser (localStorage `wa-work-areas-ors-key`); a 401/403 clears it and asks again. Mick sends staff
+  the key privately. "Unsaved changes" strip always showing: FIXED 09 Nov (CSS `.confirm-strip[hidden]{display:none}`,
+  `display:flex` was overriding `hidden`); same fix in the live artifact (version 31).
+- 2026-11-09 (home PC, same bug, different angle): also found and fixed a real logic bug in
+  `loadArea()` that could independently cause the same symptom — `state.savedCodes` was computed
+  from the raw saved code list, but the actual selection only included codes the current suburb data
+  recognized. Any mismatch (stale code, data still loading) made `isDirty()` true immediately on
+  open, regardless of the CSS fix above. Both fixes are complementary, not duplicates — kept both.

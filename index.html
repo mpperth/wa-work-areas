@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WA Work Areas</title>
 <style>html,body{margin:0}</style>
+<title>WA Work Areas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -749,6 +749,7 @@ button, input { font: inherit; color: inherit; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px;
   border: 1px solid var(--draw); border-radius: 4px; background: var(--panel);
 }
+.confirm-strip[hidden] { display: none; }
 
 /* Main grid */
 .main { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 400px); gap: 8px; }
@@ -869,7 +870,6 @@ tr.sel td { background: var(--accent-soft); }
 </style>
 </head>
 <body>
-
 <div class="app">
   <div class="toolbar">
     <h1>WA Work Areas</h1>
@@ -1053,6 +1053,10 @@ tr.sel td { background: var(--accent-soft); }
         <div class="ghost-pair">
           <label for="baseAddress">Base address</label>
           <input id="baseAddress" class="ghost" type="text" placeholder="e.g. 123 Main St, Perth WA" style="width:320px" autocomplete="off">
+        </div>
+        <div class="ghost-pair" id="orsKeyRow" hidden>
+          <label for="orsKeyInput">Drive-time key</label>
+          <input id="orsKeyInput" class="ghost" type="password" placeholder="Paste the key Mick sent you" style="width:320px" autocomplete="off">
         </div>
         <div id="driveTimesPreviewWrap" class="import-table-wrap" hidden>
           <table class="import-table">
@@ -2104,14 +2108,32 @@ tr.sel td { background: var(--accent-soft); }
   });
 
   /* ---------- Drive times (OpenRouteService) ---------- */
-  const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImFiMjNiMzhmZGVhMTQzODVhMmIxOWZhNDY5MDFkYjNlIiwiaCI6Im11cm11cjY0In0=";
+  let orsApiKey = null;
+  function loadOrsKeyOnce(db) {
+    db.doc("meta/orsKey").get().then(function (snap) {
+      const data = snap.exists ? snap.data() : null;
+      if (data && typeof data.key === "string") {
+        orsApiKey = data.key;
+      }
+    }).catch(function () { /* key not available */ });
+  }
   const DRIVE_TIME_BATCH = 40;
 
   async function geocodeAddress(address) {
-    const url = "https://api.openrouteservice.org/geocode/search?api_key=" + encodeURIComponent(ORS_API_KEY) +
+    if (!orsApiKey) {
+      throw new Error("Drive-time lookup isn't set up yet. Reload the page and try again.");
+    }
+    const url = "https://api.openrouteservice.org/geocode/search?api_key=" + encodeURIComponent(orsApiKey) +
       "&text=" + encodeURIComponent(address) + "&boundary.country=AU&size=1";
     const res = await fetch(url);
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        orsApiKey = null;
+        storeLocalOrsKey("");
+        el("orsKeyInput").value = "";
+        el("orsKeyRow").hidden = false;
+        throw new Error("That drive-time key was not accepted. Paste it again.");
+      }
       throw new Error("Geocoding failed (" + res.status + ")");
     }
     const body = await res.json();
@@ -2126,7 +2148,7 @@ tr.sel td { background: var(--accent-soft); }
     const res = await fetch("https://api.openrouteservice.org/v2/matrix/driving-car", {
       method: "POST",
       headers: {
-        "Authorization": ORS_API_KEY,
+        "Authorization": orsApiKey,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -2162,6 +2184,7 @@ tr.sel td { background: var(--accent-soft); }
     el("driveTimesStatus").textContent = "";
     el("driveTimesPreviewWrap").hidden = true;
     el("driveTimesRows").innerHTML = "";
+    el("orsKeyRow").hidden = Boolean(orsApiKey);
     el("driveTimesOverlay").hidden = false;
     el("baseAddress").focus();
   }
@@ -2183,6 +2206,17 @@ tr.sel td { background: var(--accent-soft); }
     if (!state.currentId || state.selected.size === 0) {
       el("driveTimesStatus").textContent = "Open or select an area with suburbs in it first.";
       return;
+    }
+    if (!orsApiKey) {
+      const typedKey = el("orsKeyInput").value.trim();
+      if (!typedKey) {
+        el("orsKeyRow").hidden = false;
+        el("driveTimesStatus").textContent = "Paste the drive-time key first (ask Mick for it).";
+        return;
+      }
+      orsApiKey = typedKey;
+      storeLocalOrsKey(typedKey);
+      el("orsKeyRow").hidden = true;
     }
     const btn = el("btnCalcDriveTimes");
     btn.disabled = true;
@@ -2481,7 +2515,7 @@ tr.sel td { background: var(--accent-soft); }
   const ZONE_SET = ["E1", "N1", "N2", "N3", "OUTOFZONE", "S1", "S1O", "S2", "SE_S"];
 
   function normName(s) {
-    return String(s || "").trim().toLowerCase().replace(/\s+/g, " ").replace(/^the\s+/, "");
+    return String(s || "").trim().toLowerCase().replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+/g, " ").replace(/^the\s+/, "");
   }
 
   let suburbsByName = null;
@@ -2611,6 +2645,39 @@ tr.sel td { background: var(--accent-soft); }
   });
   el("importPaste").addEventListener("input", function () {
     state.importRows = [];
+  });
+
+  /* ---------- drag-and-drop a .csv/.txt file onto the import box ---------- */
+  function loadImportFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      el("importPaste").value = String(reader.result || "");
+      state.importRows = parseImportText(el("importPaste").value);
+      renderImportPreview(state.importRows);
+      el("importStatus").textContent = "Loaded \"" + file.name + "\".";
+    };
+    reader.onerror = function () {
+      el("importStatus").textContent = "Couldn't read that file — try pasting the text instead.";
+    };
+    reader.readAsText(file);
+  }
+  ["dragenter", "dragover"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function (e) {
+      e.preventDefault();
+      el("importPaste").classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (evt) {
+    el("importPaste").addEventListener(evt, function () {
+      el("importPaste").classList.remove("dragover");
+    });
+  });
+  el("importPaste").addEventListener("drop", function (e) {
+    e.preventDefault();
+    el("importPaste").classList.remove("dragover");
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    loadImportFile(file);
   });
 
   el("btnCreateImport").addEventListener("click", async function () {
@@ -2779,6 +2846,7 @@ tr.sel td { background: var(--accent-soft); }
           el("footStatus").textContent = "";
           return;
         }
+        /* fall through to the copy/paste modal below */
       }
     }
     openExportModal("Export all saved areas (every group)", rows);
@@ -2798,39 +2866,6 @@ tr.sel td { background: var(--accent-soft); }
       el("exportAllText").select();
       el("exportAllStatus").textContent = "Couldn't copy automatically — text is selected, press Ctrl+C.";
     }
-  });
-
-  /* ---------- drag-and-drop a .csv/.txt file onto the import box ---------- */
-  function loadImportFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function () {
-      el("importPaste").value = String(reader.result || "");
-      state.importRows = parseImportText(el("importPaste").value);
-      renderImportPreview(state.importRows);
-      el("importStatus").textContent = "Loaded \"" + file.name + "\".";
-    };
-    reader.onerror = function () {
-      el("importStatus").textContent = "Couldn't read that file — try pasting the text instead.";
-    };
-    reader.readAsText(file);
-  }
-  ["dragenter", "dragover"].forEach(function (evt) {
-    el("importPaste").addEventListener(evt, function (e) {
-      e.preventDefault();
-      el("importPaste").classList.add("dragover");
-    });
-  });
-  ["dragleave", "dragend"].forEach(function (evt) {
-    el("importPaste").addEventListener(evt, function () {
-      el("importPaste").classList.remove("dragover");
-    });
-  });
-  el("importPaste").addEventListener("drop", function (e) {
-    e.preventDefault();
-    el("importPaste").classList.remove("dragover");
-    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    loadImportFile(file);
   });
 
   /* ---------- PDF export ---------- */
@@ -3112,7 +3147,31 @@ tr.sel td { background: var(--accent-soft); }
   window.addEventListener("hashchange", applyHash);
 
   /* ---------- Data store ---------- */
+  /* Public mirror only: no database here, so the drive-times key is typed in once by each person
+     and kept in their own browser (Mick 2026-11-09: never put the key in this public page). */
+  const ORS_KEY_STORE = "wa-work-areas-ors-key";
+
+  function loadLocalOrsKey() {
+    try {
+      const k = localStorage.getItem(ORS_KEY_STORE);
+      if (k) {
+        orsApiKey = k;
+      }
+    } catch (err) {
+      /* no browser storage: key is asked for each time */
+    }
+  }
+
+  function storeLocalOrsKey(k) {
+    try {
+      localStorage.setItem(ORS_KEY_STORE, k);
+    } catch (err) {
+      /* keep for this visit only */
+    }
+  }
+
   async function loadStaticAreasFallback() {
+    loadLocalOrsKey();
     try {
       const res = await fetch("areas-data.json");
       const list = await res.json();
@@ -3150,6 +3209,7 @@ tr.sel td { background: var(--accent-soft); }
     state.db = db;
     loadGroupNamesOnce(db);
     loadBaseAddressOnce(db);
+    loadOrsKeyOnce(db);
     if (user) {
       try {
         const can = await user.can("data.write");
@@ -3246,5 +3306,4 @@ tr.sel td { background: var(--accent-soft); }
   boot();
 })();
 </script>
-
 </body></html>
