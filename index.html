@@ -902,7 +902,7 @@ tr.sel td { background: var(--accent-soft); }
 .map-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
 /* Drive times box in the left panel */
-.route-box { padding: 7px 10px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 5px 6px; align-items: center; }
+.route-box { padding: 7px 10px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 5px 6px; align-items: center; }
 .route-title, .route-btns, #routeKeyRow, #routeStatus { grid-column: 1 / -1; }
 .route-title { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .route-btns { display: flex; gap: 6px; }
@@ -913,7 +913,7 @@ tr.sel td { background: var(--accent-soft); }
 }
 .route-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .route-box .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-.route-out { padding: 6px 10px; border-top: 1px solid var(--line); }
+.route-out { padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .route-out[hidden] { display: none; }
 .route-head { font-size: 12px; font-weight: 600; }
 .route-sub { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
@@ -996,6 +996,29 @@ tr.sel td { background: var(--accent-soft); }
 
   <div class="main">
     <section class="col" aria-label="Saved areas">
+      <div class="route-box" aria-label="Drive times between two suburbs">
+        <div class="route-title">Drive times</div>
+        <span class="lbl">From</span>
+        <div class="pick-wrap">
+          <input id="routeA" type="text" placeholder="Suburb 1" autocomplete="off" aria-label="From suburb" title="Type a suburb, then click it">
+          <div id="routeAList" class="pick-list" hidden></div>
+        </div>
+        <span class="lbl">To</span>
+        <div class="pick-wrap">
+          <input id="routeB" type="text" placeholder="Suburb 2" autocomplete="off" aria-label="To suburb" title="Type a suburb, then click it">
+          <div id="routeBList" class="pick-list" hidden></div>
+        </div>
+        <div class="route-btns">
+        <button id="btnRoute" class="btn primary" type="button" title="Show both suburbs and drive times through the day (with normal traffic)">Go</button>
+        <button id="btnRouteClear" class="btn" type="button" title="Clear both boxes and the highlight" hidden>Clear</button>
+        </div>
+        <span id="routeKeyRow" hidden>
+          <input id="routeKey" class="key-input" type="password" placeholder="Paste the TomTom key" autocomplete="off" aria-label="TomTom key">
+          <button id="btnRouteKey" class="btn" type="button">Save key</button>
+        </span>
+        <span id="routeStatus" class="status"></span>
+      </div>
+      <div id="routeOut" class="route-out" hidden></div>
       <div class="col-head">
         <h2>Saved areas</h2>
         <span id="areasCount" class="status counts"></span>
@@ -1024,29 +1047,6 @@ tr.sel td { background: var(--accent-soft); }
       </div>
       <ul id="areasList" class="areas"></ul>
       <div id="areasEmpty" class="empty-note">Loading saved areas...</div>
-      <div class="route-box" aria-label="Drive times between two suburbs">
-        <div class="route-title">Drive times</div>
-        <span class="lbl">From</span>
-        <div class="pick-wrap">
-          <input id="routeA" type="text" placeholder="Suburb 1" autocomplete="off" aria-label="From suburb" title="Type a suburb, then click it">
-          <div id="routeAList" class="pick-list" hidden></div>
-        </div>
-        <span class="lbl">To</span>
-        <div class="pick-wrap">
-          <input id="routeB" type="text" placeholder="Suburb 2" autocomplete="off" aria-label="To suburb" title="Type a suburb, then click it">
-          <div id="routeBList" class="pick-list" hidden></div>
-        </div>
-        <div class="route-btns">
-        <button id="btnRoute" class="btn primary" type="button" title="Show both suburbs and drive times through the day (with normal traffic)">Go</button>
-        <button id="btnRouteClear" class="btn" type="button" title="Clear both boxes and the highlight" hidden>Clear</button>
-        </div>
-        <span id="routeKeyRow" hidden>
-          <input id="routeKey" class="key-input" type="password" placeholder="Paste the TomTom key" autocomplete="off" aria-label="TomTom key">
-          <button id="btnRouteKey" class="btn" type="button">Save key</button>
-        </span>
-        <span id="routeStatus" class="status"></span>
-      </div>
-      <div id="routeOut" class="route-out" hidden></div>
       <div class="foot">
         <button id="btnImport" class="btn" type="button" title="Paste or drop a list of suburbs to make areas from it">Import by suburb name</button>
       </div>
