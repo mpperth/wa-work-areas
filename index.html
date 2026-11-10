@@ -689,6 +689,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --sel: #0b8a7a;
   --sel-line: #06574d;
   --draw: #c2410c;
+  --from: #1d4ed8; --to: #be123c;
   --council: #6d28d9;
   --road-major: #d9822b;
   --road-minor: #9aa3a0;
@@ -700,7 +701,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   :root:not([data-theme="light"]) {
     --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
     --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
-    --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+    --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --from: #60a5fa; --to: #fb7185; --council: #c4b5fd;
     --road-major: #c98a45; --road-minor: #5f6b67; --town: #d6dcda;
     color-scheme: dark;
   }
@@ -708,7 +709,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 :root[data-theme="dark"] {
   --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
   --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
-  --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+  --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --from: #60a5fa; --to: #fb7185; --council: #c4b5fd;
   --road-major: #c98a45; --road-minor: #5f6b67; --town: #d6dcda;
   color-scheme: dark;
 }
@@ -908,6 +909,14 @@ tr.sel td { background: var(--accent-soft); }
 .route-btns { display: flex; gap: 6px; }
 #routeKeyRow:not([hidden]) { display: flex; gap: 6px; }
 #routeStatus:empty { display: none; }
+.route-box .lbl-from { color: var(--from); font-weight: 700; }
+.route-box .lbl-to { color: var(--to); font-weight: 700; }
+#routeA { border-left: 4px solid var(--from); }
+#routeB { border-left: 4px solid var(--to); }
+.leaflet-tooltip.route-tip { font-weight: 700; font-size: 12px; color: #fff; border: 0; padding: 2px 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.leaflet-tooltip.route-tip::before { display: none; }
+.leaflet-tooltip.route-tip.from { background: var(--from); }
+.leaflet-tooltip.route-tip.to { background: var(--to); }
 .route-box .pick-wrap input, .route-box .key-input {
   width: 100%; border: 1px solid var(--land-line); border-radius: 4px; padding: 3px 6px; background: var(--panel);
 }
@@ -998,12 +1007,12 @@ tr.sel td { background: var(--accent-soft); }
     <section class="col" aria-label="Saved areas">
       <div class="route-box" aria-label="Drive times between two suburbs">
         <div class="route-title">Drive times</div>
-        <span class="lbl">From</span>
+        <span class="lbl lbl-from">From</span>
         <div class="pick-wrap">
           <input id="routeA" type="text" placeholder="Suburb 1" autocomplete="off" aria-label="From suburb" title="Type a suburb, then click it">
           <div id="routeAList" class="pick-list" hidden></div>
         </div>
-        <span class="lbl">To</span>
+        <span class="lbl lbl-to">To</span>
         <div class="pick-wrap">
           <input id="routeB" type="text" placeholder="Suburb 2" autocomplete="off" aria-label="To suburb" title="Type a suburb, then click it">
           <div id="routeBList" class="pick-list" hidden></div>
@@ -2689,13 +2698,23 @@ tr.sel td { background: var(--accent-soft); }
     if (routeLayer) {
       map.removeLayer(routeLayer);
     }
-    routeLayer = L.geoJSON({ type: "FeatureCollection", features: [a.feature, b.feature] }, {
-      pane: "basemap",
-      renderer: baseRenderer,
-      interactive: false,
-      style: { color: token("--draw"), weight: 4, fill: true, fillColor: token("--draw"), fillOpacity: 0.25 }
-    }).addTo(map);
-    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40], maxZoom: 13 });
+    function part(sub, color, word, cls) {
+      const layer = L.geoJSON(sub.feature, {
+        pane: "basemap",
+        renderer: baseRenderer,
+        interactive: false,
+        style: { color: color, weight: 4, fill: true, fillColor: color, fillOpacity: 0.35 }
+      });
+      const tip = L.tooltip({ permanent: true, direction: "center", className: "route-tip " + cls })
+        .setLatLng(L.latLng(turf.centroid(sub.feature).geometry.coordinates.slice().reverse()))
+        .setContent(word + ": " + escapeHtml(cleanName(sub.n)));
+      return L.featureGroup([layer, tip]);
+    }
+    routeLayer = L.featureGroup([
+      part(a, token("--from"), "From", "from"),
+      part(b, token("--to"), "To", "to")
+    ]).addTo(map);
+    map.fitBounds(L.featureGroup([routeLayer]).getBounds(), { padding: [40, 40], maxZoom: 13 });
     el("btnRouteClear").hidden = false;
   }
 
