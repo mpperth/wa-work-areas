@@ -690,6 +690,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --sel-line: #06574d;
   --draw: #c2410c;
   --council: #6d28d9;
+  --road-major: #d9822b;
+  --road-minor: #9aa3a0;
+  --town: #3b3f46;
   --font-ui: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
@@ -698,6 +701,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
     --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
     --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+    --road-major: #c98a45; --road-minor: #5f6b67; --town: #d6dcda;
     color-scheme: dark;
   }
 }
@@ -705,6 +709,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --bg: #121716; --panel: #1a2120; --fg: #e3ebe8; --muted: #93a29d; --line: #2e3836;
   --accent: #3cc2ae; --accent-fg: #06201c; --accent-soft: #173a35; --danger: #f2817a;
   --sea: #0e1a20; --land: #222a28; --land-line: #4b5753; --sel: #2fa894; --sel-line: #7fe3d2; --draw: #fb923c; --council: #c4b5fd;
+  --road-major: #c98a45; --road-minor: #5f6b67; --town: #d6dcda;
   color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -858,6 +863,34 @@ tr.sel td { background: var(--accent-soft); }
 .import-table tr.nomatch td.suburb::after { content: " \2014 no match"; font-size: 11px; }
 .import-summary { font-size: 12px; color: var(--muted); }
 
+/* Help strip: tells the user the next step */
+.help-strip {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  border: 1px solid var(--accent); border-left-width: 4px; border-radius: 4px;
+  background: var(--accent-soft); color: var(--fg); font-size: 13px;
+}
+.help-strip[hidden] { display: none; }
+.help-strip b { color: var(--accent); }
+.help-strip .help-text { flex: 1; }
+.help-strip .help-close { border: 0; background: none; cursor: pointer; font-size: 16px; line-height: 1; color: var(--muted); padding: 0 4px; }
+.help-strip .help-close:hover { color: var(--fg); }
+#btnTips.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+@keyframes namePulse { 0%, 100% { box-shadow: 0 0 0 2px var(--accent-soft); } 50% { box-shadow: 0 0 0 5px var(--accent); } }
+.ghost.pulse { animation: namePulse 0.6s ease-in-out 3; border-color: var(--accent); }
+
+/* Background map: town names */
+.town-label { background: none; border: 0; }
+.town-label span {
+  display: block; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none;
+  font-size: 11px; font-weight: 600; color: var(--town); letter-spacing: 0.02em;
+  text-shadow: 0 0 2px var(--land), 0 0 2px var(--land), 0 0 3px var(--land);
+}
+.town-label.big span { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.town-label.dot span::before {
+  content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--town); margin-right: 4px; vertical-align: 1px;
+}
+
 @media (max-width: 900px) {
   html, body { height: auto; }
   .main { grid-template-columns: minmax(0, 1fr); }
@@ -878,12 +911,18 @@ tr.sel td { background: var(--accent-soft); }
       <input id="areaName" class="ghost" type="text" placeholder="Name this area" autocomplete="off">
     </div>
     <div id="swatches" class="swatches" role="radiogroup" aria-label="Area colour"></div>
-    <button id="btnSave" class="btn primary" type="button">Save</button>
-    <button id="btnSaveNew" class="btn" type="button">Save as new</button>
-    <button id="btnNew" class="btn" type="button">New area</button>
-    <button id="btnDelete" class="btn danger" type="button">Delete</button>
-    <button id="btnDriveTimes" class="btn" type="button">Drive times</button>
+    <button id="btnSave" class="btn primary" type="button" title="Save this area (name, suburbs and colour)">Save</button>
+    <button id="btnSaveNew" class="btn" type="button" title="Save a copy under the name typed above. The original stays as it was">Save as new</button>
+    <button id="btnNew" class="btn" type="button" title="Start a new, empty area">New area</button>
+    <button id="btnDelete" class="btn danger" type="button" title="Delete the open area (click twice to confirm)">Delete</button>
+    <button id="btnDriveTimes" class="btn" type="button" title="Drive time from a base address to each suburb in the open area">Drive times</button>
+    <button id="btnTips" class="btn" type="button" title="Show or hide the step-by-step tips">Tips</button>
     <span id="saveStatus" class="status"></span>
+  </div>
+
+  <div id="helpStrip" class="help-strip" role="status" aria-live="polite" hidden>
+    <span id="helpText" class="help-text"></span>
+    <button id="helpClose" class="help-close" type="button" title="Hide tips" aria-label="Hide tips">&times;</button>
   </div>
 
   <div id="confirmStrip" class="confirm-strip" hidden>
@@ -904,26 +943,26 @@ tr.sel td { background: var(--accent-soft); }
         </div>
         <button type="button" id="btnRenameGroup" class="btn" title="Rename the current group">Rename</button>
         <span class="spacer"></span>
-        <button type="button" id="btnShowAllAreas" class="btn">Show all</button>
-        <button type="button" id="btnHideAllAreas" class="btn">Hide all</button>
+        <button type="button" id="btnShowAllAreas" class="btn" title="Show every saved area in this group on the map">Show all</button>
+        <button type="button" id="btnHideAllAreas" class="btn" title="Hide the other saved areas from the map">Hide all</button>
       </div>
       <div class="col-head">
-        <button id="btnDraw" class="btn" type="button">Draw shape</button>
+        <button id="btnDraw" class="btn" type="button" title="Click corners on the map round the suburbs you want">Draw shape</button>
         <div class="radio-row" role="radiogroup" aria-label="Drawing adds or removes suburbs">
-          <label><input type="radio" name="drawOp" id="opAdd" value="add" checked> Add</label>
-          <label><input type="radio" name="drawOp" id="opRemove" value="remove"> Remove</label>
+          <label title="Suburbs inside the shape are added"><input type="radio" name="drawOp" id="opAdd" value="add" checked> Add</label>
+          <label title="Suburbs inside the shape are removed"><input type="radio" name="drawOp" id="opRemove" value="remove"> Remove</label>
         </div>
-        <button id="btnFinish" class="btn" type="button" hidden>Finish shape</button>
-        <button id="btnUndoPt" class="btn" type="button" hidden>Undo corner</button>
-        <button id="btnCancelDraw" class="btn" type="button" hidden>Cancel</button>
-        <button id="btnEditShape" class="btn" type="button" hidden>Edit shape</button>
-        <button id="btnClearShape" class="btn" type="button" hidden>Hide shape</button>
+        <button id="btnFinish" class="btn" type="button" hidden title="Close the shape and add or remove the suburbs inside it">Finish shape</button>
+        <button id="btnUndoPt" class="btn" type="button" hidden title="Remove the last corner (or press Backspace)">Undo corner</button>
+        <button id="btnCancelDraw" class="btn" type="button" hidden title="Stop drawing without changing anything (or press Esc)">Cancel</button>
+        <button id="btnEditShape" class="btn" type="button" hidden title="Drag the corners of the last shape to change it">Edit shape</button>
+        <button id="btnClearShape" class="btn" type="button" hidden title="Hide the shape outline. The suburbs stay picked">Hide shape</button>
         <span id="drawHint" class="draw-hint" hidden>Click points round the area. Double-click or Finish to close.</span>
       </div>
       <ul id="areasList" class="areas"></ul>
       <div id="areasEmpty" class="empty-note">Loading saved areas...</div>
       <div class="foot">
-        <button id="btnImport" class="btn" type="button">Import by suburb name</button>
+        <button id="btnImport" class="btn" type="button" title="Paste or drop a list of suburbs to make areas from it">Import by suburb name</button>
       </div>
     </section>
 
@@ -943,13 +982,14 @@ tr.sel td { background: var(--accent-soft); }
         </div>
         <div class="radio-row" role="radiogroup" aria-label="Clicking the map picks">
           <span class="status">Click picks:</span>
-          <label><input type="radio" name="pickMode" id="pickSuburb" value="suburb" checked> Suburb</label>
-          <label><input type="radio" name="pickMode" id="pickCouncil" value="council"> Council</label>
-          <label class="radio-row"><input type="checkbox" id="showNames" checked> Names</label>
+          <label title="Clicking the map adds or removes one suburb"><input type="radio" name="pickMode" id="pickSuburb" value="suburb" checked> Suburb</label>
+          <label title="Clicking the map adds or removes every suburb in that council"><input type="radio" name="pickMode" id="pickCouncil" value="council"> Council</label>
+          <label class="radio-row" title="Show suburb names on the map"><input type="checkbox" id="showNames" checked> Names</label>
+          <label class="radio-row" title="Show main roads and town names on the map"><input type="checkbox" id="showBase" checked> Map</label>
           <span class="spacer"></span>
-          <button id="zoomWA" class="btn" type="button">All WA</button>
-          <button id="zoomPerth" class="btn" type="button">Perth</button>
-          <button id="zoomSel" class="btn" type="button">Fit selected</button>
+          <button id="zoomWA" class="btn" type="button" title="Zoom out to all of WA">All WA</button>
+          <button id="zoomPerth" class="btn" type="button" title="Zoom to Perth">Perth</button>
+          <button id="zoomSel" class="btn" type="button" title="Zoom to the suburbs in this area">Fit selected</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -966,11 +1006,11 @@ tr.sel td { background: var(--accent-soft); }
         <div id="tableEmpty" class="empty-note" hidden></div>
       </div>
       <div class="foot">
-        <button id="btnPdf" class="btn" type="button">Export PDF</button>
-        <button id="btnCsv" class="btn" type="button">Export CSV</button>
-        <button id="btnCopy" class="btn" type="button">Copy list</button>
-        <button id="btnExportAll" class="btn primary" type="button">Export All</button>
-        <button id="btnClear" class="btn danger" type="button">Clear all</button>
+        <button id="btnPdf" class="btn" type="button" title="Save a PDF with a map and the suburb list">Export PDF</button>
+        <button id="btnCsv" class="btn" type="button" title="Save this area's suburbs as a spreadsheet file">Export CSV</button>
+        <button id="btnCopy" class="btn" type="button" title="Copy the suburb names, one per line">Copy list</button>
+        <button id="btnExportAll" class="btn primary" type="button" title="Save every saved area, all groups, as one spreadsheet file">Export All</button>
+        <button id="btnClear" class="btn danger" type="button" title="Untick every suburb in this area (click twice to confirm)">Clear all</button>
         <span id="footStatus" class="status"></span>
       </div>
     </section>
@@ -1116,7 +1156,10 @@ tr.sel td { background: var(--accent-soft); }
     importRows: [],
     groupNames: { 1: "Group 1", 2: "Group 2", 3: "Group 3" },
     baseAddress: "",
-    baseCoord: null
+    baseCoord: null,
+    justSaved: false,
+    helpOff: false,
+    basemap: null
   };
 
   const el = function (id) { return document.getElementById(id); };
@@ -1151,7 +1194,7 @@ tr.sel td { background: var(--accent-soft); }
   /* ---------- Map ---------- */
   const map = L.map("map", { preferCanvas: true, zoomSnap: 0.5, doubleClickZoom: false, minZoom: 4 });
   map.attributionControl.setPrefix(false);
-  map.attributionControl.addAttribution("Suburb boundaries: ABS ASGS 2021, CC BY 4.0");
+  map.attributionControl.addAttribution("Suburb boundaries + towns: ABS ASGS 2021, CC BY 4.0 · Roads: Main Roads WA, CC BY 4.0");
   map.fitBounds(WA_BOUNDS);
 
   let geoLayer = null;
@@ -1328,6 +1371,7 @@ tr.sel td { background: var(--accent-soft); }
     if (councilLayer) {
       councilLayer.setStyle(councilStyle);
     }
+    restyleBasemap();
   }
 
   function buildLayer() {
@@ -1364,6 +1408,132 @@ tr.sel td { background: var(--accent-soft); }
       }
     }).addTo(map);
   }
+
+  /* ---------- Background map: main roads + town names ----------
+     Drawn ON TOP of the suburb shapes (the suburbs cover all WA land in solid colour),
+     in its own pane that ignores the mouse, so clicks still reach the suburbs. */
+  const BASE_KEY = "wa-work-areas-base";
+  const basePane = map.createPane("basemap");
+  basePane.style.zIndex = 450;
+  basePane.style.pointerEvents = "none";
+  const baseRenderer = L.canvas({ pane: "basemap" });
+  const townLayer = L.layerGroup().addTo(map);
+  const roadLayers = { 1: null, 2: null, 3: null };
+  const ROAD_MIN_ZOOM = { 1: 0, 2: 6, 3: 10 };
+  const TOWN_MIN_ZOOM = { 1: 0, 2: 4, 3: 6, 4: 7.5, 5: 8.5 };
+  const TOWN_HIDE_ZOOM = 11;
+
+  function roadStyle(cls) {
+    if (cls === 1) {
+      return { color: token("--road-major"), weight: 2.4, opacity: 0.9 };
+    }
+    if (cls === 2) {
+      return { color: token("--road-major"), weight: 1.5, opacity: 0.8 };
+    }
+    return { color: token("--road-minor"), weight: 1.1, opacity: 0.85 };
+  }
+
+  function baseOn() {
+    return el("showBase").checked && state.basemap !== null;
+  }
+
+  function buildBasemap(data) {
+    const lines = { 1: [], 2: [], 3: [] };
+    data.roads.forEach(function (r) {
+      const list = lines[r[0]];
+      if (list) {
+        list.push(r[1].map(function (c) { return [c[1], c[0]]; }));
+      }
+    });
+    [1, 2, 3].forEach(function (cls) {
+      const opts = roadStyle(cls);
+      opts.renderer = baseRenderer;
+      opts.interactive = false;
+      opts.pane = "basemap";
+      roadLayers[cls] = L.polyline(lines[cls], opts);
+    });
+    state.basemap = data;
+    renderBasemap();
+  }
+
+  function renderBasemap() {
+    const on = baseOn();
+    const zoom = map.getZoom();
+    [1, 2, 3].forEach(function (cls) {
+      const layer = roadLayers[cls];
+      if (!layer) {
+        return;
+      }
+      const want = on && zoom >= ROAD_MIN_ZOOM[cls];
+      if (want && !map.hasLayer(layer)) {
+        layer.addTo(map);
+      } else if (!want && map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+    });
+    townLayer.clearLayers();
+    if (!on || zoom >= TOWN_HIDE_ZOOM) {
+      return;
+    }
+    const v = map.getBounds();
+    state.basemap.towns.forEach(function (t) {
+      const rank = t[3];
+      if (zoom < TOWN_MIN_ZOOM[rank]) {
+        return;
+      }
+      if (rank === 1 && zoom >= 9) {
+        return;
+      }
+      if (!v.contains([t[2], t[1]])) {
+        return;
+      }
+      let cls = "town-label dot";
+      if (rank <= 2) {
+        cls = "town-label dot big";
+      }
+      L.marker([t[2], t[1]], {
+        interactive: false,
+        keyboard: false,
+        icon: L.divIcon({ className: cls, html: "<span>" + escapeHtml(t[0]) + "</span>", iconSize: [0, 0] })
+      }).addTo(townLayer);
+    });
+  }
+
+  function restyleBasemap() {
+    [1, 2, 3].forEach(function (cls) {
+      if (roadLayers[cls]) {
+        roadLayers[cls].setStyle(roadStyle(cls));
+      }
+    });
+  }
+
+  (function initBaseToggle() {
+    try {
+      if (localStorage.getItem(BASE_KEY) === "off") {
+        el("showBase").checked = false;
+      }
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+    el("showBase").addEventListener("change", function () {
+      try {
+        if (el("showBase").checked) {
+          localStorage.setItem(BASE_KEY, "on");
+        } else {
+          localStorage.setItem(BASE_KEY, "off");
+        }
+      } catch (err) {
+        /* per-viewer convenience only */
+      }
+      renderBasemap();
+    });
+  })();
+
+  map.on("zoomend moveend", function () {
+    if (state.basemap) {
+      renderBasemap();
+    }
+  });
 
   /* ---------- Suburb name labels ---------- */
   const labelLayer = L.layerGroup().addTo(map);
@@ -1557,6 +1727,7 @@ tr.sel td { background: var(--accent-soft); }
   }
 
   function afterChange() {
+    state.justSaved = false;
     renderTable();
     renderStatus();
     renderLabels();
@@ -1577,6 +1748,7 @@ tr.sel td { background: var(--accent-soft); }
     el("drawHint").textContent = drawHintText();
     map.getContainer().style.cursor = "crosshair";
     clearShape();
+    renderHelp();
   }
 
   function stopDraw() {
@@ -1591,6 +1763,7 @@ tr.sel td { background: var(--accent-soft); }
     drawGroup.clearLayers();
     drawLine = null;
     rubberLine = null;
+    renderHelp();
   }
 
   const drawGroup = L.layerGroup().addTo(map);
@@ -2028,7 +2201,91 @@ tr.sel td { background: var(--accent-soft); }
     el("btnSave").disabled = !canSave;
     el("btnSaveNew").disabled = !canSave || !state.currentId;
     el("btnDelete").disabled = !canSave || !state.currentId;
+    renderHelp();
   }
+
+  /* ---------- Help strip: the next step, in plain words ---------- */
+  const HELP_KEY = "wa-work-areas-help";
+
+  function suburbsText(n) {
+    if (n === 1) {
+      return "1 suburb";
+    }
+    return n + " suburbs";
+  }
+
+  function helpMessage() {
+    if (state.drawing || !state.db || !state.canWrite) {
+      return "";
+    }
+    const name = el("areaName").value.trim();
+    const n = state.selected.size;
+    if (state.currentId) {
+      if (state.justSaved && !isDirty()) {
+        return "Saved <b>" + escapeHtml(name) + "</b> with " + suburbsText(n) + ".";
+      }
+      if (isDirty()) {
+        if (!name) {
+          return "Type a name in the <b>Area</b> box at the top, then click <b>Save</b>.";
+        }
+        return "Unsaved changes. Click <b>Save</b> to keep them, or <b>Save as new</b> to keep a copy under the name typed above.";
+      }
+      return "<b>" + escapeHtml(name) + "</b> is open. Click suburbs on the map or tick them in the table to change it, then click <b>Save</b>.";
+    }
+    if (!name && n === 0) {
+      return "<b>Step 1:</b> type a name for the new area in the <b>Area</b> box at the top. Or click a saved area on the left to open it.";
+    }
+    if (!name) {
+      return "<b>Step 1:</b> type a name for this area in the <b>Area</b> box at the top. You have " + suburbsText(n) + " picked.";
+    }
+    if (n === 0) {
+      return "<b>Step 2:</b> pick suburbs. Click them on the map, use <b>Draw shape</b>, or choose <b>All suburbs</b> in the table and tick them.";
+    }
+    return "<b>Step 3:</b> click <b>Save</b> to keep <b>" + escapeHtml(name) + "</b> (" + suburbsText(n) + ").";
+  }
+
+  function renderHelp() {
+    const strip = el("helpStrip");
+    const msg = helpMessage();
+    if (state.helpOff || !msg) {
+      strip.hidden = true;
+    } else {
+      el("helpText").innerHTML = msg;
+      strip.hidden = false;
+    }
+    el("btnTips").classList.toggle("on", !state.helpOff);
+  }
+
+  function setHelpOff(off) {
+    state.helpOff = off;
+    try {
+      if (off) {
+        localStorage.setItem(HELP_KEY, "off");
+      } else {
+        localStorage.setItem(HELP_KEY, "on");
+      }
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+    renderHelp();
+  }
+
+  try {
+    state.helpOff = localStorage.getItem(HELP_KEY) === "off";
+  } catch (err) {
+    state.helpOff = false;
+  }
+  el("helpClose").addEventListener("click", function () { setHelpOff(true); });
+  el("btnTips").addEventListener("click", function () { setHelpOff(!state.helpOff); });
+
+  function focusName() {
+    const box = el("areaName");
+    box.focus();
+    box.classList.remove("pulse");
+    void box.offsetWidth;
+    box.classList.add("pulse");
+  }
+  el("areaName").addEventListener("animationend", function () { el("areaName").classList.remove("pulse"); });
 
   function renderGroupTabs() {
     const g1 = el("tabGroup1");
@@ -2425,8 +2682,16 @@ tr.sel td { background: var(--accent-soft); }
     rebuildOverlay();
   });
 
-  el("btnNew").addEventListener("click", function () { askThen(newArea); });
-  el("areaName").addEventListener("input", renderStatus);
+  el("btnNew").addEventListener("click", function () {
+    askThen(function () {
+      newArea();
+      focusName();
+    });
+  });
+  el("areaName").addEventListener("input", function () {
+    state.justSaved = false;
+    renderStatus();
+  });
   el("tabGroup1").addEventListener("click", function () { askThen(function () { switchGroup(1); }); });
   el("tabGroup2").addEventListener("click", function () { askThen(function () { switchGroup(2); }); });
   el("tabGroup3").addEventListener("click", function () { askThen(function () { switchGroup(3); }); });
@@ -2439,7 +2704,7 @@ tr.sel td { background: var(--accent-soft); }
     if (!name) {
       el("saveStatus").textContent = "Type a name for the area first.";
       el("saveStatus").classList.add("dirty");
-      el("areaName").focus();
+      focusName();
       return;
     }
     const codes = Array.from(state.selected).sort();
@@ -2466,6 +2731,7 @@ tr.sel td { background: var(--accent-soft); }
       state.savedCodes = codesKey(state.selected);
       state.savedColor = state.color;
       history.replaceState(null, "", "#" + ref.id);
+      state.justSaved = true;
       renderAreas();
       renderStatus();
     } catch (err) {
@@ -2953,6 +3219,59 @@ tr.sel td { background: var(--accent-soft); }
       ctx.globalAlpha = 1;
       ctx.stroke();
     });
+    if (baseOn()) {
+      const viewW = maxX - minX;
+      [3, 2, 1].forEach(function (cls) {
+        if (cls === 3 && viewW > 1.2) {
+          return;
+        }
+        ctx.strokeStyle = ["", "#d9822b", "#d9822b", "#9aa3a0"][cls];
+        ctx.lineWidth = [0, 3.2, 2.2, 1.4][cls];
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        state.basemap.roads.forEach(function (r) {
+          if (r[0] !== cls) {
+            return;
+          }
+          r[1].forEach(function (c, i) {
+            const p = px(c[0], c[1]);
+            if (i === 0) {
+              ctx.moveTo(p[0], p[1]);
+            } else {
+              ctx.lineTo(p[0], p[1]);
+            }
+          });
+        });
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+      let maxRank = 4;
+      if (viewW > 6) {
+        maxRank = 2;
+      } else if (viewW > 2) {
+        maxRank = 3;
+      }
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.font = "italic 600 16px Arial, sans-serif";
+      ctx.lineWidth = 4;
+      state.basemap.towns.forEach(function (t) {
+        if (t[3] > maxRank || (t[3] === 1 && viewW < 1.5)) {
+          return;
+        }
+        const p = px(t[1], t[2]);
+        if (p[0] < 0 || p[0] > W || p[1] < 0 || p[1] > H) {
+          return;
+        }
+        ctx.fillStyle = "#3b3f46";
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.strokeText(t[0], p[0] + 7, p[1]);
+        ctx.fillText(t[0], p[0] + 7, p[1]);
+      });
+    }
     if (rows.length <= 160) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -3015,7 +3334,7 @@ tr.sel td { background: var(--accent-soft); }
     doc.addImage(img, "JPEG", margin + (boxW - imgW) / 2, margin + 15, imgW, imgH);
     doc.setFontSize(7);
     doc.setTextColor(120);
-    doc.text("Suburb boundaries: ABS ASGS 2021, CC BY 4.0", margin, pageH - 5);
+    doc.text("Suburb boundaries + towns: ABS ASGS 2021, CC BY 4.0 · Roads: Main Roads WA, CC BY 4.0", margin, pageH - 5);
     doc.setTextColor(0);
     doc.addPage("a4", "portrait");
     doc.autoTable({
@@ -3301,6 +3620,9 @@ tr.sel td { background: var(--accent-soft); }
     }
     state.hashWanted = location.hash.replace(/^#/, "");
     startStore();
+    fetch("wa-basemap.json").then(function (r) { return r.json(); }).then(buildBasemap).catch(function () {
+      /* the background map is optional; the app works without it */
+    });
   }
 
   boot();
