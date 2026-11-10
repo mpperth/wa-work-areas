@@ -901,30 +901,30 @@ tr.sel td { background: var(--accent-soft); }
 }
 .map-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
-/* Suburb-to-suburb bar above the map */
-.route-bar { gap: 6px 10px; }
-.route-bar .pick-wrap input, .route-bar .key-input {
-  width: 180px; border: 1px solid var(--land-line); border-radius: 4px; padding: 3px 8px; background: var(--panel);
+/* Drive times box in the left panel */
+.route-box { padding: 7px 10px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 5px 6px; align-items: center; }
+.route-title, .route-btns, #routeKeyRow, #routeStatus { grid-column: 1 / -1; }
+.route-title { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.route-btns { display: flex; gap: 6px; }
+#routeKeyRow:not([hidden]) { display: flex; gap: 6px; }
+#routeStatus:empty { display: none; }
+.route-box .pick-wrap input, .route-box .key-input {
+  width: 100%; border: 1px solid var(--land-line); border-radius: 4px; padding: 3px 6px; background: var(--panel);
 }
-.route-bar .key-input { width: 220px; }
-.route-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-.route-bar .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-.route-out { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.route-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.route-box .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.route-out { padding: 6px 10px; border-top: 1px solid var(--line); }
 .route-out[hidden] { display: none; }
-.route-table { border-collapse: collapse; font-size: 12px; width: auto; margin-top: 4px; }
-.route-head { font-size: 13px; }
-.route-sub { color: var(--muted); font-size: 12px; margin-left: 8px; }
-.route-sum { font-size: 12px; margin-top: 2px; }
-.route-table td.rt-bar { width: 200px; text-align: left; }
-.rt-bar span { display: block; height: 8px; border-radius: 2px; background: var(--muted); opacity: 0.55; }
-.route-table tr.slow .rt-bar span { opacity: 1; }
-.route-table tr.slow .rt-bar span { background: var(--danger); }
-.route-table tr.slow td.rt-min, .route-table td.rt-tag { color: var(--danger); font-weight: 600; text-align: left; }
-.route-table th, .route-table td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
-.route-table th { position: static; cursor: default; }
+.route-head { font-size: 12px; font-weight: 600; }
+.route-sub { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+.route-sum { font-size: 12px; margin-top: 3px; }
+.route-table { border-collapse: collapse; font-size: 12px; width: 100%; margin-top: 4px; }
+.route-table th, .route-table td { padding: 3px 3px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.route-table th { position: static; cursor: default; font-size: 11px; }
 .route-table th:first-child, .route-table td:first-child { text-align: left; color: var(--muted); }
 .route-table td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.route-table td.slow { color: var(--danger); font-weight: 600; }
+.route-table tr.slow td { color: var(--danger); font-weight: 600; }
+.staff-link { display: block; text-align: center; margin-top: 6px; text-decoration: none; }
 .route-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
 
 /* Named map views */
@@ -1024,13 +1024,8 @@ tr.sel td { background: var(--accent-soft); }
       </div>
       <ul id="areasList" class="areas"></ul>
       <div id="areasEmpty" class="empty-note">Loading saved areas...</div>
-      <div class="foot">
-        <button id="btnImport" class="btn" type="button" title="Paste or drop a list of suburbs to make areas from it">Import by suburb name</button>
-      </div>
-    </section>
-
-    <section class="col map-col" aria-label="Map">
-      <div class="col-head route-bar">
+      <div class="route-box" aria-label="Drive times between two suburbs">
+        <div class="route-title">Drive times</div>
         <span class="lbl">From</span>
         <div class="pick-wrap">
           <input id="routeA" type="text" placeholder="Suburb 1" autocomplete="off" aria-label="From suburb" title="Type a suburb, then click it">
@@ -1041,8 +1036,10 @@ tr.sel td { background: var(--accent-soft); }
           <input id="routeB" type="text" placeholder="Suburb 2" autocomplete="off" aria-label="To suburb" title="Type a suburb, then click it">
           <div id="routeBList" class="pick-list" hidden></div>
         </div>
+        <div class="route-btns">
         <button id="btnRoute" class="btn primary" type="button" title="Show both suburbs and drive times through the day (with normal traffic)">Go</button>
         <button id="btnRouteClear" class="btn" type="button" title="Clear both boxes and the highlight" hidden>Clear</button>
+        </div>
         <span id="routeKeyRow" hidden>
           <input id="routeKey" class="key-input" type="password" placeholder="Paste the TomTom key" autocomplete="off" aria-label="TomTom key">
           <button id="btnRouteKey" class="btn" type="button">Save key</button>
@@ -1050,6 +1047,12 @@ tr.sel td { background: var(--accent-soft); }
         <span id="routeStatus" class="status"></span>
       </div>
       <div id="routeOut" class="route-out" hidden></div>
+      <div class="foot">
+        <button id="btnImport" class="btn" type="button" title="Paste or drop a list of suburbs to make areas from it">Import by suburb name</button>
+      </div>
+    </section>
+
+    <section class="col map-col" aria-label="Map">
       <div class="map-holder">
       <div class="map-search pick-wrap">
         <input id="mapSearch" type="search" placeholder="Find a suburb on the map" autocomplete="off"
@@ -2738,22 +2741,17 @@ tr.sel td { background: var(--accent-soft); }
     SLOTS.forEach(function (slot, i) {
       const r = results[i];
       let cls = "";
-      let tag = "";
       if (r.secs === slowest && slowest > fastest * 1.05 && !slowLabel) {
         cls = " class=\"slow\"";
-        tag = "slowest";
         slowLabel = slot.label;
       }
-      const pct = Math.max(8, Math.round(r.secs / slowest * 100));
-      rows += "<tr" + cls + "><td>" + slot.label + "</td>" +
-        "<td class=\"rt-min\">" + Math.round(r.secs / 60) + " min</td>" +
-        "<td class=\"rt-bar\"><span style=\"width:" + pct + "%\"></span></td>" +
-        "<td>" + r.km.toFixed(1) + " km</td>" +
-        "<td class=\"rt-tag\">" + tag + "</td></tr>";
+      rows += "<tr" + cls + "><td>" + slot.label.replace(/ /g, "") + "</td>" +
+        "<td>" + Math.round(r.secs / 60) + " min</td>" +
+        "<td>" + r.km.toFixed(1) + " km</td></tr>";
     });
     let summary = "";
     if (slowLabel) {
-      summary = "Quickest " + Math.round(fastest / 60) + " min, slowest " + Math.round(slowest / 60) + " min (" + slowLabel + ")";
+      summary = "Quickest " + Math.round(fastest / 60) + " min, slowest " + Math.round(slowest / 60) + " min (" + slowLabel + "). Slowest in red.";
     } else {
       summary = "About the same all day: " + Math.round(fastest / 60) + " to " + Math.round(slowest / 60) + " min";
     }
@@ -2761,7 +2759,7 @@ tr.sel td { background: var(--accent-soft); }
       "<div class=\"route-head\"><strong>" + escapeHtml(cleanName(a.n)) + " to " + escapeHtml(cleanName(b.n)) + "</strong>" +
       "<span class=\"route-sub\">normal weekday traffic (" + escapeHtml(showDate(day)) + ")</span></div>" +
       "<div class=\"route-sum\">" + summary + "</div>" +
-      "<table class=\"route-table\"><thead><tr><th>Time of day</th><th>Drive time</th><th></th><th>Distance</th><th></th></tr></thead>" +
+      "<table class=\"route-table\"><thead><tr><th>Time</th><th>Drive</th><th>Distance</th></tr></thead>" +
       "<tbody>" + rows + "</tbody></table>" +
       "<div class=\"route-note\">Centre of suburb to centre of suburb. Traffic: TomTom.</div>";
     el("routeOut").hidden = false;
