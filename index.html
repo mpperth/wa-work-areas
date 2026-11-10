@@ -922,6 +922,15 @@ tr.sel td { background: var(--accent-soft); }
 }
 .route-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .route-box .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+/* make the drive times box stand out */
+.route-box { background: var(--accent-soft); padding: 10px; grid-template-columns: 52px minmax(0, 1fr); gap: 7px 6px; }
+.route-title { font-size: 15px; font-weight: 700; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.route-box .lbl.lbl-from, .route-box .lbl.lbl-to { color: #fff; font-size: 13px; font-weight: 700; text-align: center; border-radius: 4px; padding: 7px 0; }
+.route-box .lbl.lbl-from { background: var(--from); }
+.route-box .lbl.lbl-to { background: var(--to); }
+.route-box .pick-wrap input { font-size: 16px; font-weight: 700; padding: 6px 8px; color: var(--fg); }
+.route-box #routeA { border: 2px solid var(--from); border-left-width: 6px; }
+.route-box #routeB { border: 2px solid var(--to); border-left-width: 6px; }
 .route-out { padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .route-out[hidden] { display: none; }
 .route-head { font-size: 12px; font-weight: 600; }
