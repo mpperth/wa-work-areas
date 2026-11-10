@@ -900,6 +900,20 @@ tr.sel td { background: var(--accent-soft); }
 }
 .map-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 
+/* Named map views */
+.view-btns { display: contents; }
+.views-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.views-table th, .views-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.views-table th { position: static; cursor: default; }
+.views-table tr.editing td { background: var(--accent-soft); }
+.views-table td.v-name button { border: 0; background: none; padding: 0; cursor: pointer; font-weight: 600; text-align: left; }
+.views-table td.v-name button:hover { color: var(--accent); text-decoration: underline; }
+.view-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.view-form label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+.view-form input { width: 100%; border: 1px solid var(--land-line); border-radius: 4px; padding: 4px 8px; background: var(--panel); }
+.view-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+@media (max-width: 700px) { .view-form { grid-template-columns: minmax(0, 1fr); } }
+
 /* Background map: town names */
 .town-label { background: none; border: 0; }
 .town-label span {
@@ -1015,7 +1029,8 @@ tr.sel td { background: var(--accent-soft); }
           <label class="radio-row" title="Show main roads and town names on the map"><input type="checkbox" id="showBase" checked> Map</label>
           <span class="spacer"></span>
           <button id="zoomWA" class="btn" type="button" title="Zoom out to all of WA">All WA</button>
-          <button id="zoomPerth" class="btn" type="button" title="Zoom to Perth">Perth</button>
+          <span id="viewBtns" class="view-btns"></span>
+          <button id="btnViews" class="btn" type="button" title="Add, rename or delete your own zoom buttons (Suburb 1 to Suburb 2)">+ View</button>
           <button id="zoomSel" class="btn" type="button" title="Zoom to the suburbs in this area">Fit selected</button>
         </div>
       </div>
@@ -1105,6 +1120,45 @@ tr.sel td { background: var(--accent-soft); }
       <div class="modal-foot">
         <button id="btnRenameGroupSave" class="btn primary" type="button">Save</button>
         <span id="renameGroupStatus" class="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewsOverlay" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="viewsTitle">
+      <div class="modal-head">
+        <h3 id="viewsTitle">Map views</h3>
+        <button id="viewsClose" class="btn" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-hint">A view is a zoom button. Give it a name and pick two suburbs: the map zooms to show both of them and everything between. Click a name in the table to change it.</div>
+        <div class="import-table-wrap">
+          <table class="views-table">
+            <thead><tr><th>Name</th><th>Suburb 1</th><th>Suburb 2</th><th></th></tr></thead>
+            <tbody id="viewsRows"></tbody>
+          </table>
+        </div>
+        <div class="view-form">
+          <div>
+            <label for="viewName">Name</label>
+            <input id="viewName" type="text" placeholder="e.g. North coast" autocomplete="off">
+          </div>
+          <div class="pick-wrap">
+            <label for="viewA">Suburb 1</label>
+            <input id="viewA" type="text" placeholder="Type, then click" autocomplete="off">
+            <div id="viewAList" class="pick-list" hidden></div>
+          </div>
+          <div class="pick-wrap">
+            <label for="viewB">Suburb 2</label>
+            <input id="viewB" type="text" placeholder="Type, then click" autocomplete="off">
+            <div id="viewBList" class="pick-list" hidden></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="btnViewSave" class="btn primary" type="button">Add view</button>
+        <button id="btnViewNew" class="btn" type="button" hidden>Cancel change</button>
+        <span id="viewsStatus" class="status"></span>
       </div>
     </div>
   </div>
@@ -2519,6 +2573,263 @@ tr.sel td { background: var(--accent-soft); }
     el("driveTimesStatus").textContent = "";
   });
 
+  /* ---------- Named map views: zoom buttons from Suburb 1 to Suburb 2 ----------
+     Saved in the shared database (meta/views) when there is one, otherwise in this browser. */
+  const VIEWS_KEY = "wa-work-areas-views";
+  let views = [{ id: "perth", name: "Perth", bounds: PERTH_BOUNDS }];
+  let editingView = null;
+  let viewPickA = "";
+  let viewPickB = "";
+
+  function viewBounds(v) {
+    if (v.bounds) {
+      return L.latLngBounds(v.bounds);
+    }
+    let b = null;
+    [v.a, v.b].forEach(function (code) {
+      const layer = state.layerByCode.get(code);
+      if (!layer) {
+        return;
+      }
+      if (b) {
+        b.extend(layer.getBounds());
+      } else {
+        b = L.latLngBounds(layer.getBounds().getSouthWest(), layer.getBounds().getNorthEast());
+      }
+    });
+    return b;
+  }
+
+  function suburbLabel(code) {
+    const s = state.byCode.get(code);
+    if (s) {
+      return cleanName(s.n);
+    }
+    return "";
+  }
+
+  function renderViewButtons() {
+    el("viewBtns").innerHTML = views.map(function (v) {
+      let tip = "Zoom to " + v.name;
+      if (v.a) {
+        tip = "Zoom to " + suburbLabel(v.a) + " to " + suburbLabel(v.b);
+      }
+      return "<button type=\"button\" class=\"btn\" data-view=\"" + escapeHtml(v.id) + "\" title=\"" + escapeHtml(tip) + "\">" + escapeHtml(v.name) + "</button>";
+    }).join("");
+  }
+
+  function renderViewsTable() {
+    const sorted = views.slice().sort(function (x, y) { return collator.compare(x.name, y.name); });
+    el("viewsRows").innerHTML = sorted.map(function (v) {
+      let cls = "";
+      if (editingView === v.id) {
+        cls = " class=\"editing\"";
+      }
+      let a = "(fixed area)";
+      let b = "";
+      if (v.a) {
+        a = escapeHtml(suburbLabel(v.a));
+        b = escapeHtml(suburbLabel(v.b));
+      }
+      return "<tr" + cls + "><td class=\"v-name\"><button type=\"button\" data-edit-view=\"" + escapeHtml(v.id) + "\" title=\"Change this view\">" + escapeHtml(v.name) + "</button></td>" +
+        "<td>" + a + "</td><td>" + b + "</td>" +
+        "<td><button type=\"button\" class=\"btn danger\" data-del-view=\"" + escapeHtml(v.id) + "\">Delete</button></td></tr>";
+    }).join("");
+    if (views.length === 0) {
+      el("viewsRows").innerHTML = "<tr><td colspan=\"4\">No views yet. Add one below.</td></tr>";
+    }
+  }
+
+  function resetViewForm() {
+    editingView = null;
+    viewPickA = "";
+    viewPickB = "";
+    el("viewName").value = "";
+    el("viewA").value = "";
+    el("viewB").value = "";
+    el("btnViewSave").textContent = "Add view";
+    el("btnViewNew").hidden = true;
+    renderViewsTable();
+  }
+
+  function storeViews() {
+    const list = views.map(function (v) {
+      if (v.bounds) {
+        return { id: v.id, name: v.name, bounds: v.bounds };
+      }
+      return { id: v.id, name: v.name, a: v.a, b: v.b };
+    });
+    if (state.db) {
+      return state.db.doc("meta/views").set({ list: list });
+    }
+    try {
+      localStorage.setItem(VIEWS_KEY, JSON.stringify(list));
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+    return Promise.resolve();
+  }
+
+  function setViews(list) {
+    if (Array.isArray(list)) {
+      views = list.filter(function (v) {
+        return v && typeof v.name === "string" && (Array.isArray(v.bounds) || (typeof v.a === "string" && typeof v.b === "string"));
+      });
+    }
+    renderViewButtons();
+    if (!el("viewsOverlay").hidden) {
+      renderViewsTable();
+    }
+  }
+
+  function loadViewsOnce(db) {
+    db.doc("meta/views").get().then(function (snap) {
+      if (snap.exists && snap.data() && Array.isArray(snap.data().list)) {
+        setViews(snap.data().list);
+      }
+    }).catch(function () { /* keep the default Perth view */ });
+  }
+
+  function loadLocalViews() {
+    try {
+      const raw = localStorage.getItem(VIEWS_KEY);
+      if (raw) {
+        setViews(JSON.parse(raw));
+      }
+    } catch (err) {
+      /* keep the default Perth view */
+    }
+  }
+
+  el("viewBtns").addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-view]");
+    if (!btn) {
+      return;
+    }
+    const v = views.find(function (x) { return x.id === btn.getAttribute("data-view"); });
+    if (!v) {
+      return;
+    }
+    const b = viewBounds(v);
+    if (b) {
+      map.fitBounds(b, { padding: [30, 30] });
+    }
+  });
+
+  el("btnViews").addEventListener("click", function () {
+    if (state.db && !state.canWrite) {
+      el("footStatus").textContent = "You can use the views, but not change them.";
+      return;
+    }
+    resetViewForm();
+    el("viewsStatus").textContent = "";
+    el("viewsOverlay").hidden = false;
+    el("viewName").focus();
+  });
+  function closeViews() {
+    el("viewsOverlay").hidden = true;
+  }
+  el("viewsClose").addEventListener("click", closeViews);
+  el("viewsOverlay").addEventListener("click", function (e) {
+    if (e.target === el("viewsOverlay")) {
+      closeViews();
+    }
+  });
+  attachSuburbPicker(el("viewA"), el("viewAList"), function (s) { viewPickA = s.c; });
+  attachSuburbPicker(el("viewB"), el("viewBList"), function (s) { viewPickB = s.c; });
+
+  function pickedCode(picked, typed) {
+    const s = state.byCode.get(picked);
+    if (s && normName(cleanName(s.n)) === normName(typed)) {
+      return s.c;
+    }
+    const found = findSuburbByName(typed);
+    if (found) {
+      return found.c;
+    }
+    return "";
+  }
+
+  el("viewsRows").addEventListener("click", function (e) {
+    const edit = e.target.closest("button[data-edit-view]");
+    const del = e.target.closest("button[data-del-view]");
+    if (edit) {
+      const v = views.find(function (x) { return x.id === edit.getAttribute("data-edit-view"); });
+      if (!v) {
+        return;
+      }
+      editingView = v.id;
+      el("viewName").value = v.name;
+      viewPickA = v.a || "";
+      viewPickB = v.b || "";
+      el("viewA").value = suburbLabel(viewPickA);
+      el("viewB").value = suburbLabel(viewPickB);
+      el("btnViewSave").textContent = "Save change";
+      el("btnViewNew").hidden = false;
+      el("viewsStatus").textContent = "";
+      renderViewsTable();
+      el("viewName").focus();
+      return;
+    }
+    if (del) {
+      if (!del.classList.contains("armed")) {
+        del.classList.add("armed");
+        del.textContent = "Confirm delete";
+        return;
+      }
+      const id = del.getAttribute("data-del-view");
+      views = views.filter(function (x) { return x.id !== id; });
+      if (editingView === id) {
+        resetViewForm();
+      }
+      renderViewButtons();
+      renderViewsTable();
+      storeViews().then(function () {
+        el("viewsStatus").textContent = "View deleted.";
+      }).catch(function () {
+        el("viewsStatus").textContent = "Could not save. Try again.";
+      });
+    }
+  });
+
+  el("btnViewNew").addEventListener("click", resetViewForm);
+
+  el("btnViewSave").addEventListener("click", function () {
+    const name = el("viewName").value.trim();
+    const a = pickedCode(viewPickA, el("viewA").value.trim());
+    const b = pickedCode(viewPickB, el("viewB").value.trim());
+    if (!name) {
+      el("viewsStatus").textContent = "Type a name for the view.";
+      el("viewName").focus();
+      return;
+    }
+    if (!a || !b) {
+      el("viewsStatus").textContent = "Pick Suburb 1 and Suburb 2 from the lists (type, then click).";
+      return;
+    }
+    if (editingView) {
+      views = views.map(function (v) {
+        if (v.id === editingView) {
+          return { id: v.id, name: name, a: a, b: b };
+        }
+        return v;
+      });
+    } else {
+      views.push({ id: "v" + Date.now().toString(36), name: name, a: a, b: b });
+    }
+    renderViewButtons();
+    storeViews().then(function () {
+      el("viewsStatus").textContent = "Saved \"" + name + "\".";
+    }).catch(function () {
+      el("viewsStatus").textContent = "Could not save. Try again.";
+    });
+    const zb = viewBounds({ a: a, b: b });
+    if (zb) {
+      map.fitBounds(zb, { padding: [30, 30] });
+    }
+    resetViewForm();
+  });
+
   /* ---------- Drive times (OpenRouteService) ---------- */
   let orsApiKey = null;
   function loadOrsKeyOnce(db) {
@@ -3576,7 +3887,6 @@ tr.sel td { background: var(--accent-soft); }
     }
   }
   el("zoomWA").addEventListener("click", function () { map.fitBounds(WA_BOUNDS); });
-  el("zoomPerth").addEventListener("click", function () { map.fitBounds(PERTH_BOUNDS); });
   el("zoomSel").addEventListener("click", fitSelected);
   el("btnDraw").addEventListener("click", function () {
     if (state.drawing) {
@@ -3665,6 +3975,7 @@ tr.sel td { background: var(--accent-soft); }
 
   async function startStore() {
     if (!window.claude || !window.claude.use) {
+      loadLocalViews();
       await loadStaticAreasFallback();
       renderStatus();
       return;
@@ -3681,6 +3992,7 @@ tr.sel td { background: var(--accent-soft); }
     state.db = db;
     loadGroupNamesOnce(db);
     loadBaseSuburbOnce(db);
+    loadViewsOnce(db);
     loadOrsKeyOnce(db);
     if (user) {
       try {
@@ -3768,6 +4080,7 @@ tr.sel td { background: var(--accent-soft); }
       setPickMode(state.pickMode);
       renderLabels();
       renderTable();
+      renderViewButtons();
     } catch (err) {
       el("tableEmpty").textContent = "Could not load the suburb list. Reload the page.";
     }
