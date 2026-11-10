@@ -2649,6 +2649,7 @@ tr.sel td { background: var(--accent-soft); }
   let routePickA = "";
   let routePickB = "";
   let routeLayer = null;
+  let routeLine = null;
 
   function loadTomTomKeyOnce(db) {
     db.doc("meta/tomtomKey").get().then(function (snap) {
@@ -2710,7 +2711,14 @@ tr.sel td { background: var(--accent-soft); }
         .setContent(word + ": " + escapeHtml(cleanName(sub.n)));
       return L.featureGroup([layer, tip]);
     }
+    const fromLl = L.latLng(turf.centroid(a.feature).geometry.coordinates.slice().reverse());
+    const toLl = L.latLng(turf.centroid(b.feature).geometry.coordinates.slice().reverse());
+    routeLine = L.polyline([fromLl, toLl], {
+      pane: "basemap", renderer: baseRenderer, interactive: false,
+      color: token("--from"), weight: 3, dashArray: "6 6"
+    });
     routeLayer = L.featureGroup([
+      routeLine,
       part(a, token("--from"), "From", "from"),
       part(b, token("--to"), "To", "to")
     ]).addTo(map);
@@ -2748,7 +2756,11 @@ tr.sel td { background: var(--accent-soft); }
     if (typeof secs !== "number") {
       secs = sum.travelTimeInSeconds;
     }
-    return { secs: secs, km: sum.lengthInMeters / 1000, free: sum.noTrafficTravelTimeInSeconds };
+    let points = [];
+    (body.routes[0].legs || []).forEach(function (leg) {
+      (leg.points || []).forEach(function (pt) { points.push([pt.latitude, pt.longitude]); });
+    });
+    return { secs: secs, km: sum.lengthInMeters / 1000, free: sum.noTrafficTravelTimeInSeconds, points: points };
   }
 
   function renderRouteTable(a, b, day, results) {
@@ -2803,6 +2815,26 @@ tr.sel td { background: var(--accent-soft); }
     runRoute();
   }
 
+  function drawRoadRoute(results) {
+    let best = results[0];
+    results.forEach(function (r) {
+      if (r.secs < best.secs) {
+        best = r;
+      }
+    });
+    if (!routeLayer || !best.points || best.points.length < 2) {
+      return;
+    }
+    if (routeLine) {
+      routeLayer.removeLayer(routeLine);
+    }
+    routeLine = L.polyline(best.points, {
+      pane: "basemap", renderer: baseRenderer, interactive: false,
+      color: token("--from"), weight: 4, opacity: 0.85
+    });
+    routeLayer.addLayer(routeLine);
+  }
+
   async function runRoute() {
     const a = state.byCode.get(pickedCode(routePickA, el("routeA").value.trim()));
     const b = state.byCode.get(pickedCode(routePickB, el("routeB").value.trim()));
@@ -2828,6 +2860,7 @@ tr.sel td { background: var(--accent-soft); }
     el("routeStatus").textContent = "Getting drive times...";
     try {
       const results = await Promise.all(SLOTS.map(function (slot) { return slotTime(from, to, day, slot); }));
+      drawRoadRoute(results);
       renderRouteTable(a, b, day, results);
       el("routeStatus").textContent = "";
     } catch (err) {
