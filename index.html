@@ -2890,8 +2890,14 @@ tr.sel td { background: var(--accent-soft); }
     }
   }
 
-  attachSuburbPicker(el("routeA"), el("routeAList"), function (s) { routePickA = s.c; });
-  attachSuburbPicker(el("routeB"), el("routeBList"), function (s) { routePickB = s.c; });
+  /* run straight away once both suburbs are picked (Go stays for a re-run) */
+  function autoRoute() {
+    if (routePickA && routePickB && routePickA !== routePickB) {
+      runRoute();
+    }
+  }
+  attachSuburbPicker(el("routeA"), el("routeAList"), function (s) { routePickA = s.c; autoRoute(); });
+  attachSuburbPicker(el("routeB"), el("routeBList"), function (s) { routePickB = s.c; autoRoute(); });
   el("btnRoute").addEventListener("click", runRoute);
   el("routeB").addEventListener("keydown", function (e) {
     if (e.key === "Enter" && el("routeBList").hidden) {
