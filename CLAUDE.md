@@ -122,3 +122,8 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   from the raw saved code list, but the actual selection only included codes the current suburb data
   recognized. Any mismatch (stale code, data still loading) made `isDirty()` true immediately on
   open, regardless of the CSS fix above. Both fixes are complementary, not duplicates — kept both.
+- 2026-11-10 (work Mac): Rebuilt from live artifact v34 changes: background map (Main Roads WA main roads +
+  ABS town names, `wa-basemap.json`, "Map" tick box, also in PDF); "Find a suburb on the map" search box;
+  drive times now FROM A SUBURB centre instead of a street address (address lookup removed for privacy -
+  no patient addresses to OpenRouteService); base suburb kept in localStorage `wa-work-areas-base-suburb`;
+  rejected key (401/403) now caught on the matrix call. Help strip is hidden here (no db = view only), hover tips still show.

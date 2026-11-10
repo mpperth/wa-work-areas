@@ -878,6 +878,28 @@ tr.sel td { background: var(--accent-soft); }
 @keyframes namePulse { 0%, 100% { box-shadow: 0 0 0 2px var(--accent-soft); } 50% { box-shadow: 0 0 0 5px var(--accent); } }
 .ghost.pulse { animation: namePulse 0.6s ease-in-out 3; border-color: var(--accent); }
 
+/* Suburb picker (map search + drive-time base): a text box with clickable rows under it */
+.pick-wrap { position: relative; }
+.pick-list {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px; z-index: 1200;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18); max-height: 260px; overflow-y: auto;
+}
+.pick-list[hidden] { display: none; }
+.pick-list button {
+  display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
+  border: 0; background: none; padding: 5px 10px; cursor: pointer; font-size: 13px;
+}
+.pick-list button small { color: var(--muted); font-size: 11px; }
+.pick-list button:hover, .pick-list button.hl { background: var(--accent-soft); }
+.pick-list .pick-none { padding: 6px 10px; color: var(--muted); font-size: 12px; }
+.map-search { position: absolute; top: 10px; right: 10px; z-index: 1000; width: 260px; }
+.map-search input {
+  width: 100%; border: 1px solid var(--land-line); border-radius: 4px; padding: 5px 9px;
+  background: var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.map-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
 /* Background map: town names */
 .town-label { background: none; border: 0; }
 .town-label span {
@@ -915,7 +937,7 @@ tr.sel td { background: var(--accent-soft); }
     <button id="btnSaveNew" class="btn" type="button" title="Save a copy under the name typed above. The original stays as it was">Save as new</button>
     <button id="btnNew" class="btn" type="button" title="Start a new, empty area">New area</button>
     <button id="btnDelete" class="btn danger" type="button" title="Delete the open area (click twice to confirm)">Delete</button>
-    <button id="btnDriveTimes" class="btn" type="button" title="Drive time from a base address to each suburb in the open area">Drive times</button>
+    <button id="btnDriveTimes" class="btn" type="button" title="Drive time from one suburb to each suburb in the open area">Drive times</button>
     <button id="btnTips" class="btn" type="button" title="Show or hide the step-by-step tips">Tips</button>
     <span id="saveStatus" class="status"></span>
   </div>
@@ -967,6 +989,11 @@ tr.sel td { background: var(--accent-soft); }
     </section>
 
     <section class="col map-col" aria-label="Map">
+      <div class="map-search pick-wrap">
+        <input id="mapSearch" type="search" placeholder="Find a suburb on the map" autocomplete="off"
+          title="Type a suburb name, then click it (or press Enter) to zoom the map there" aria-label="Find a suburb on the map">
+        <div id="mapSearchList" class="pick-list" hidden></div>
+      </div>
       <div id="map"></div>
     </section>
 
@@ -1089,10 +1116,13 @@ tr.sel td { background: var(--accent-soft); }
         <button id="driveTimesClose" class="btn" type="button">Close</button>
       </div>
       <div class="modal-body">
-        <div class="import-hint">Drive time from your base address to every suburb in the currently open area, using real road routing (no live traffic).</div>
+        <div class="import-hint">Drive time from the centre of one suburb to the centre of every suburb in the open area, using real road routing (no live traffic). Only suburb centre points are sent to the routing service, never street addresses.</div>
         <div class="ghost-pair">
-          <label for="baseAddress">Base address</label>
-          <input id="baseAddress" class="ghost" type="text" placeholder="e.g. 123 Main St, Perth WA" style="width:320px" autocomplete="off">
+          <label for="baseSuburb">From suburb</label>
+          <div class="pick-wrap">
+            <input id="baseSuburb" class="ghost" type="text" placeholder="Type a suburb, then click it" style="width:320px" autocomplete="off">
+            <div id="baseSuburbList" class="pick-list" hidden></div>
+          </div>
         </div>
         <div class="ghost-pair" id="orsKeyRow" hidden>
           <label for="orsKeyInput">Drive-time key</label>
@@ -1155,8 +1185,7 @@ tr.sel td { background: var(--accent-soft); }
     group: 1,
     importRows: [],
     groupNames: { 1: "Group 1", 2: "Group 2", 3: "Group 3" },
-    baseAddress: "",
-    baseCoord: null,
+    baseCode: "",
     justSaved: false,
     helpOff: false,
     basemap: null
@@ -2314,14 +2343,14 @@ tr.sel td { background: var(--accent-soft); }
     }).catch(function () { /* keep defaults */ });
   }
 
-  function loadBaseAddressOnce(db) {
+  function loadBaseSuburbOnce(db) {
     db.doc("meta/base").get().then(function (snap) {
-      const data = snap.exists ? snap.data() : null;
-      if (data && typeof data.address === "string") {
-        state.baseAddress = data.address;
-        if (typeof data.lng === "number" && typeof data.lat === "number") {
-          state.baseCoord = [data.lng, data.lat];
-        }
+      let data = null;
+      if (snap.exists) {
+        data = snap.data();
+      }
+      if (data && typeof data.code === "string") {
+        state.baseCode = data.code;
       }
     }).catch(function () { /* keep defaults */ });
   }
@@ -2364,6 +2393,132 @@ tr.sel td { background: var(--accent-soft); }
     if (e.key === "Escape") { closeRenameGroup(); }
   });
 
+  /* ---------- Suburb picker: type, then click a row (no dropdowns) ---------- */
+  function cleanName(n) {
+    return n.replace(/ \(WA\)$/, "");
+  }
+
+  function matchSuburbs(text) {
+    const q = normName(text);
+    if (!q) {
+      return [];
+    }
+    const starts = [];
+    const contains = [];
+    state.suburbs.forEach(function (s) {
+      const n = normName(s.n);
+      if (n.indexOf(q) === 0) {
+        starts.push(s);
+      } else if (n.indexOf(q) !== -1) {
+        contains.push(s);
+      }
+    });
+    const byName = function (a, b) { return collator.compare(a.n, b.n); };
+    starts.sort(byName);
+    contains.sort(byName);
+    return starts.concat(contains).slice(0, 10);
+  }
+
+  function attachSuburbPicker(input, list, onPick) {
+    let hits = [];
+    let hl = 0;
+    function draw() {
+      if (hits.length === 0) {
+        if (input.value.trim()) {
+          list.innerHTML = "<div class=\"pick-none\">No suburb matches.</div>";
+          list.hidden = false;
+        } else {
+          list.hidden = true;
+        }
+        return;
+      }
+      list.innerHTML = hits.map(function (s, i) {
+        let cls = "";
+        if (i === hl) {
+          cls = " class=\"hl\"";
+        }
+        return "<button type=\"button\" data-pick=\"" + s.c + "\"" + cls + ">" + escapeHtml(cleanName(s.n)) +
+          "<small>" + escapeHtml(s.k) + "</small></button>";
+      }).join("");
+      list.hidden = false;
+    }
+    function pick(s) {
+      input.value = cleanName(s.n);
+      list.hidden = true;
+      onPick(s);
+    }
+    input.addEventListener("input", function () {
+      hits = matchSuburbs(input.value);
+      hl = 0;
+      draw();
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" && hits.length > 0) {
+        e.preventDefault();
+        hl = Math.min(hl + 1, hits.length - 1);
+        draw();
+      } else if (e.key === "ArrowUp" && hits.length > 0) {
+        e.preventDefault();
+        hl = Math.max(hl - 1, 0);
+        draw();
+      } else if (e.key === "Enter" && !list.hidden && hits.length > 0) {
+        e.preventDefault();
+        pick(hits[hl]);
+      } else if (e.key === "Escape") {
+        list.hidden = true;
+      }
+    });
+    list.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+    });
+    list.addEventListener("click", function (e) {
+      const btn = e.target.closest("button[data-pick]");
+      if (btn) {
+        const s = state.byCode.get(btn.getAttribute("data-pick"));
+        if (s) {
+          pick(s);
+        }
+      }
+    });
+    input.addEventListener("blur", function () {
+      list.hidden = true;
+    });
+  }
+
+  /* Map search: zoom to a suburb and flash its outline (does not change the area) */
+  let flashLayer = null;
+  let flashTimer = null;
+  function flashSuburb(s) {
+    if (flashLayer) {
+      map.removeLayer(flashLayer);
+    }
+    clearTimeout(flashTimer);
+    flashLayer = L.geoJSON(s.feature, {
+      pane: "basemap",
+      renderer: baseRenderer,
+      interactive: false,
+      style: { color: token("--draw"), weight: 4, fill: false, dashArray: "6 4" }
+    }).addTo(map);
+    flashTimer = setTimeout(function () {
+      if (flashLayer) {
+        map.removeLayer(flashLayer);
+        flashLayer = null;
+      }
+    }, 6000);
+  }
+  attachSuburbPicker(el("mapSearch"), el("mapSearchList"), function (s) {
+    const layer = state.layerByCode.get(s.c);
+    if (layer) {
+      map.fitBounds(layer.getBounds(), { maxZoom: 13, padding: [40, 40] });
+    }
+    flashSuburb(s);
+    el("footStatus").textContent = cleanName(s.n) + ": click it on the map to add or remove it.";
+  });
+  attachSuburbPicker(el("baseSuburb"), el("baseSuburbList"), function (s) {
+    state.baseCode = s.c;
+    el("driveTimesStatus").textContent = "";
+  });
+
   /* ---------- Drive times (OpenRouteService) ---------- */
   let orsApiKey = null;
   function loadOrsKeyOnce(db) {
@@ -2375,31 +2530,6 @@ tr.sel td { background: var(--accent-soft); }
     }).catch(function () { /* key not available */ });
   }
   const DRIVE_TIME_BATCH = 40;
-
-  async function geocodeAddress(address) {
-    if (!orsApiKey) {
-      throw new Error("Drive-time lookup isn't set up yet. Reload the page and try again.");
-    }
-    const url = "https://api.openrouteservice.org/geocode/search?api_key=" + encodeURIComponent(orsApiKey) +
-      "&text=" + encodeURIComponent(address) + "&boundary.country=AU&size=1";
-    const res = await fetch(url);
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        orsApiKey = null;
-        storeLocalOrsKey("");
-        el("orsKeyInput").value = "";
-        el("orsKeyRow").hidden = false;
-        throw new Error("That drive-time key was not accepted. Paste it again.");
-      }
-      throw new Error("Geocoding failed (" + res.status + ")");
-    }
-    const body = await res.json();
-    const feature = body.features && body.features[0];
-    if (!feature) {
-      throw new Error("Could not find that address.");
-    }
-    return feature.geometry.coordinates;
-  }
 
   async function matrixBatch(baseCoord, destCoords) {
     const res = await fetch("https://api.openrouteservice.org/v2/matrix/driving-car", {
@@ -2417,6 +2547,13 @@ tr.sel td { background: var(--accent-soft); }
       })
     });
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        orsApiKey = null;
+        storeLocalOrsKey("");
+        el("orsKeyInput").value = "";
+        el("orsKeyRow").hidden = false;
+        throw new Error("That drive-time key was not accepted. Paste it again.");
+      }
       throw new Error("Drive time lookup failed (" + res.status + ")");
     }
     return res.json();
@@ -2436,14 +2573,26 @@ tr.sel td { background: var(--accent-soft); }
     return km.toFixed(1) + " km";
   }
 
+  try {
+    state.baseCode = localStorage.getItem("wa-work-areas-base-suburb") || "";
+  } catch (err) {
+    state.baseCode = "";
+  }
+
   function openDriveTimes() {
-    el("baseAddress").value = state.baseAddress;
+    const base = state.byCode.get(state.baseCode);
+    if (base) {
+      el("baseSuburb").value = cleanName(base.n);
+    } else {
+      el("baseSuburb").value = "";
+    }
+    el("baseSuburbList").hidden = true;
     el("driveTimesStatus").textContent = "";
     el("driveTimesPreviewWrap").hidden = true;
     el("driveTimesRows").innerHTML = "";
     el("orsKeyRow").hidden = Boolean(orsApiKey);
     el("driveTimesOverlay").hidden = false;
-    el("baseAddress").focus();
+    el("baseSuburb").focus();
   }
   function closeDriveTimes() {
     el("driveTimesOverlay").hidden = true;
@@ -2455,11 +2604,17 @@ tr.sel td { background: var(--accent-soft); }
   });
 
   el("btnCalcDriveTimes").addEventListener("click", async function () {
-    const address = el("baseAddress").value.trim();
-    if (!address) {
-      el("driveTimesStatus").textContent = "Enter a base address first.";
+    let base = state.byCode.get(state.baseCode);
+    const typed = el("baseSuburb").value.trim();
+    if (!base || normName(cleanName(base.n)) !== normName(typed)) {
+      base = findSuburbByName(typed);
+    }
+    if (!base) {
+      el("driveTimesStatus").textContent = "Type a suburb in From suburb, then click it in the list.";
+      el("baseSuburb").focus();
       return;
     }
+
     if (!state.currentId || state.selected.size === 0) {
       el("driveTimesStatus").textContent = "Open or select an area with suburbs in it first.";
       return;
@@ -2478,16 +2633,14 @@ tr.sel td { background: var(--accent-soft); }
     const btn = el("btnCalcDriveTimes");
     btn.disabled = true;
     try {
-      let baseCoord = state.baseCoord;
-      if (address !== state.baseAddress || !baseCoord) {
-        el("driveTimesStatus").textContent = "Finding that address...";
-        baseCoord = await geocodeAddress(address);
+      const baseCoord = turf.centroid(base.feature).geometry.coordinates;
+      try {
+        localStorage.setItem("wa-work-areas-base-suburb", base.c);
+      } catch (err) {
+        /* per-viewer convenience only */
       }
-      state.baseAddress = address;
-      state.baseCoord = baseCoord;
-      if (state.db) {
-        state.db.doc("meta/base").set({ address: address, lng: baseCoord[0], lat: baseCoord[1] }).catch(function () { /* non-fatal */ });
-      }
+      state.baseCode = base.c;
+      el("baseSuburb").value = cleanName(base.n);
 
       const targets = Array.from(state.selected).map(function (code) { return state.byCode.get(code); }).filter(Boolean);
       const results = [];
@@ -2515,7 +2668,7 @@ tr.sel td { background: var(--accent-soft); }
         return "<tr><td>" + escapeHtml(r.name) + "</td><td>" + formatMinutes(r.seconds) + "</td><td>" + formatKm(r.km) + "</td></tr>";
       }).join("");
       el("driveTimesPreviewWrap").hidden = false;
-      el("driveTimesStatus").textContent = "Done — " + results.length + " suburbs.";
+      el("driveTimesStatus").textContent = "Done: " + results.length + " suburbs, from " + cleanName(base.n) + ".";
     } catch (err) {
       el("driveTimesStatus").textContent = err && err.message ? err.message : "Something went wrong. Try again.";
     } finally {
@@ -3527,7 +3680,7 @@ tr.sel td { background: var(--accent-soft); }
     }
     state.db = db;
     loadGroupNamesOnce(db);
-    loadBaseAddressOnce(db);
+    loadBaseSuburbOnce(db);
     loadOrsKeyOnce(db);
     if (user) {
       try {
