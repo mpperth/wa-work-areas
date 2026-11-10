@@ -129,3 +129,5 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   rejected key (401/403) now caught on the matrix call. Help strip is hidden here (no db = view only), hover tips still show.
 - 2026-11-10: Named map views (artifact v35): "+ View" -> Name + Suburb 1 + Suburb 2 zoom buttons. Here
   they are kept per browser in localStorage `wa-work-areas-views` (no db); default Perth view.
+- 2026-11-10: From/To suburb bar with drive times per time slot (artifact v36), TomTom Routing API with
+  historic traffic. Each person pastes the TomTom key once (localStorage `wa-work-areas-tomtom-key`).

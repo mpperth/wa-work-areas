@@ -894,11 +894,30 @@ tr.sel td { background: var(--accent-soft); }
 .pick-list button:hover, .pick-list button.hl { background: var(--accent-soft); }
 .pick-list .pick-none { padding: 6px 10px; color: var(--muted); font-size: 12px; }
 .map-search { position: absolute; top: 10px; right: 10px; z-index: 1000; width: 260px; }
+.map-holder { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .map-search input {
   width: 100%; border: 1px solid var(--land-line); border-radius: 4px; padding: 5px 9px;
   background: var(--panel); box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 .map-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* Suburb-to-suburb bar above the map */
+.route-bar { gap: 6px 10px; }
+.route-bar .pick-wrap input, .route-bar .key-input {
+  width: 180px; border: 1px solid var(--land-line); border-radius: 4px; padding: 3px 8px; background: var(--panel);
+}
+.route-bar .key-input { width: 220px; }
+.route-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.route-bar .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.route-out { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.route-out[hidden] { display: none; }
+.route-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.route-table th, .route-table td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.route-table th { position: static; cursor: default; }
+.route-table th:first-child, .route-table td:first-child { text-align: left; color: var(--muted); }
+.route-table td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.route-table td.slow { color: var(--danger); font-weight: 600; }
+.route-note { color: var(--muted); font-size: 11px; margin-top: 4px; }
 
 /* Named map views */
 .view-btns { display: contents; }
@@ -1003,12 +1022,34 @@ tr.sel td { background: var(--accent-soft); }
     </section>
 
     <section class="col map-col" aria-label="Map">
+      <div class="col-head route-bar">
+        <span class="lbl">From</span>
+        <div class="pick-wrap">
+          <input id="routeA" type="text" placeholder="Suburb 1" autocomplete="off" aria-label="From suburb" title="Type a suburb, then click it">
+          <div id="routeAList" class="pick-list" hidden></div>
+        </div>
+        <span class="lbl">To</span>
+        <div class="pick-wrap">
+          <input id="routeB" type="text" placeholder="Suburb 2" autocomplete="off" aria-label="To suburb" title="Type a suburb, then click it">
+          <div id="routeBList" class="pick-list" hidden></div>
+        </div>
+        <button id="btnRoute" class="btn primary" type="button" title="Show both suburbs and drive times through the day (with normal traffic)">Go</button>
+        <button id="btnRouteClear" class="btn" type="button" title="Clear both boxes and the highlight" hidden>Clear</button>
+        <span id="routeKeyRow" hidden>
+          <input id="routeKey" class="key-input" type="password" placeholder="Paste the TomTom key" autocomplete="off" aria-label="TomTom key">
+          <button id="btnRouteKey" class="btn" type="button">Save key</button>
+        </span>
+        <span id="routeStatus" class="status"></span>
+      </div>
+      <div id="routeOut" class="route-out" hidden></div>
+      <div class="map-holder">
       <div class="map-search pick-wrap">
         <input id="mapSearch" type="search" placeholder="Find a suburb on the map" autocomplete="off"
           title="Type a suburb name, then click it (or press Enter) to zoom the map there" aria-label="Find a suburb on the map">
         <div id="mapSearchList" class="pick-list" hidden></div>
       </div>
       <div id="map"></div>
+      </div>
     </section>
 
     <section class="col" aria-label="Suburbs">
@@ -2573,6 +2614,203 @@ tr.sel td { background: var(--accent-soft); }
     el("driveTimesStatus").textContent = "";
   });
 
+  /* ---------- Suburb to suburb: highlight both + drive times by time of day (TomTom traffic) ----------
+     Only the two suburb centre points are sent to TomTom. The key lives in the shared database
+     (meta/tomtomKey) when there is one, otherwise in this browser. */
+  const TT_KEY_LOCAL = "wa-work-areas-tomtom-key";
+  const SLOTS = [
+    { label: "6am - 8am", at: "07:00" },
+    { label: "8am - 12pm", at: "10:00" },
+    { label: "12pm - 3pm", at: "13:30" },
+    { label: "3pm - 5pm", at: "16:00" },
+    { label: "5pm - 7pm", at: "18:00" }
+  ];
+  let ttKey = "";
+  let routePickA = "";
+  let routePickB = "";
+  let routeLayer = null;
+
+  function loadTomTomKeyOnce(db) {
+    db.doc("meta/tomtomKey").get().then(function (snap) {
+      if (snap.exists && snap.data() && typeof snap.data().key === "string") {
+        ttKey = snap.data().key;
+      }
+    }).catch(function () { /* no key yet */ });
+  }
+  try {
+    ttKey = localStorage.getItem(TT_KEY_LOCAL) || "";
+  } catch (err) {
+    ttKey = "";
+  }
+
+  function storeTomTomKey(key) {
+    ttKey = key;
+    if (state.db) {
+      return state.db.doc("meta/tomtomKey").set({ key: key });
+    }
+    try {
+      localStorage.setItem(TT_KEY_LOCAL, key);
+    } catch (err) {
+      /* per-viewer convenience only */
+    }
+    return Promise.resolve();
+  }
+
+  /* next Monday-Friday, in Perth time */
+  function nextWeekday() {
+    const perthNow = new Date(Date.now() + 8 * 3600 * 1000);
+    const d = new Date(Date.UTC(perthNow.getUTCFullYear(), perthNow.getUTCMonth(), perthNow.getUTCDate()));
+    do {
+      d.setUTCDate(d.getUTCDate() + 1);
+    } while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function highlightRoute(a, b) {
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+    }
+    routeLayer = L.geoJSON({ type: "FeatureCollection", features: [a.feature, b.feature] }, {
+      pane: "basemap",
+      renderer: baseRenderer,
+      interactive: false,
+      style: { color: token("--draw"), weight: 4, fill: true, fillColor: token("--draw"), fillOpacity: 0.25 }
+    }).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40], maxZoom: 13 });
+    el("btnRouteClear").hidden = false;
+  }
+
+  async function slotTime(from, to, day, slot) {
+    const url = "https://api.tomtom.com/routing/1/calculateRoute/" +
+      from[1] + "," + from[0] + ":" + to[1] + "," + to[0] + "/json" +
+      "?key=" + encodeURIComponent(ttKey) + "&traffic=true&travelMode=car&routeType=fastest" +
+      "&computeTravelTimeFor=all&departAt=" + encodeURIComponent(day + "T" + slot.at + ":00+08:00");
+    const res = await fetch(url);
+    if (res.status === 401 || res.status === 403) {
+      const e = new Error("key");
+      e.code = "key";
+      throw e;
+    }
+    if (!res.ok) {
+      throw new Error("TomTom lookup failed (" + res.status + ")");
+    }
+    const body = await res.json();
+    const sum = body.routes && body.routes[0] && body.routes[0].summary;
+    if (!sum) {
+      throw new Error("No road route found between those suburbs.");
+    }
+    let secs = sum.historicTrafficTravelTimeInSeconds;
+    if (typeof secs !== "number") {
+      secs = sum.travelTimeInSeconds;
+    }
+    return { secs: secs, km: sum.lengthInMeters / 1000, free: sum.noTrafficTravelTimeInSeconds };
+  }
+
+  function renderRouteTable(a, b, day, results) {
+    const fastest = Math.min.apply(null, results.map(function (r) { return r.secs; }));
+    let head = "<tr><th></th>";
+    let mins = "<tr><td>Drive time</td>";
+    let kms = "<tr><td>Distance</td>";
+    SLOTS.forEach(function (slot, i) {
+      const r = results[i];
+      head += "<th>" + slot.label + "</th>";
+      let cls = "";
+      if (r.secs > fastest * 1.15) {
+        cls = " class=\"slow\"";
+      }
+      mins += "<td" + cls + ">" + Math.round(r.secs / 60) + " min</td>";
+      kms += "<td>" + r.km.toFixed(1) + " km</td>";
+    });
+    el("routeOut").innerHTML = "<table class=\"route-table\"><thead>" + head + "</tr></thead><tbody>" + mins + "</tr>" + kms + "</tr></tbody></table>" +
+      "<div class=\"route-note\">" + escapeHtml(cleanName(a.n)) + " to " + escapeHtml(cleanName(b.n)) +
+      ", centre to centre, normal traffic for a weekday (" + escapeHtml(showDate(day)) + "). Red = more than 15% slower than the quickest time. Traffic: TomTom.</div>";
+    el("routeOut").hidden = false;
+    map.invalidateSize();
+    if (routeLayer) {
+      map.fitBounds(routeLayer.getBounds(), { padding: [40, 40], maxZoom: 13 });
+    }
+  }
+
+  async function runRoute() {
+    const a = state.byCode.get(pickedCode(routePickA, el("routeA").value.trim()));
+    const b = state.byCode.get(pickedCode(routePickB, el("routeB").value.trim()));
+    if (!a || !b) {
+      el("routeStatus").textContent = "Pick both suburbs from the lists (type, then click).";
+      return;
+    }
+    if (a.c === b.c) {
+      el("routeStatus").textContent = "Pick two different suburbs.";
+      return;
+    }
+    highlightRoute(a, b);
+    if (!ttKey) {
+      el("routeKeyRow").hidden = false;
+      el("routeStatus").textContent = "Paste the TomTom key to get drive times.";
+      el("routeKey").focus();
+      return;
+    }
+    const from = turf.centroid(a.feature).geometry.coordinates;
+    const to = turf.centroid(b.feature).geometry.coordinates;
+    const day = nextWeekday();
+    el("btnRoute").disabled = true;
+    el("routeStatus").textContent = "Getting drive times...";
+    try {
+      const results = await Promise.all(SLOTS.map(function (slot) { return slotTime(from, to, day, slot); }));
+      renderRouteTable(a, b, day, results);
+      el("routeStatus").textContent = "";
+    } catch (err) {
+      if (err && err.code === "key") {
+        storeTomTomKey("");
+        el("routeKey").value = "";
+        el("routeKeyRow").hidden = false;
+        el("routeStatus").textContent = "That TomTom key was not accepted. Paste it again.";
+      } else if (err && err.message) {
+        el("routeStatus").textContent = err.message;
+      } else {
+        el("routeStatus").textContent = "Something went wrong. Try again.";
+      }
+    } finally {
+      el("btnRoute").disabled = false;
+    }
+  }
+
+  attachSuburbPicker(el("routeA"), el("routeAList"), function (s) { routePickA = s.c; });
+  attachSuburbPicker(el("routeB"), el("routeBList"), function (s) { routePickB = s.c; });
+  el("btnRoute").addEventListener("click", runRoute);
+  el("routeB").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && el("routeBList").hidden) {
+      runRoute();
+    }
+  });
+  el("btnRouteClear").addEventListener("click", function () {
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+      routeLayer = null;
+    }
+    routePickA = "";
+    routePickB = "";
+    el("routeA").value = "";
+    el("routeB").value = "";
+    el("routeOut").hidden = true;
+    el("routeStatus").textContent = "";
+    el("btnRouteClear").hidden = true;
+    map.invalidateSize();
+  });
+  el("btnRouteKey").addEventListener("click", function () {
+    const key = el("routeKey").value.trim();
+    if (!key) {
+      el("routeStatus").textContent = "Paste the key first.";
+      return;
+    }
+    storeTomTomKey(key).then(function () {
+      el("routeKeyRow").hidden = true;
+      el("routeKey").value = "";
+      runRoute();
+    }).catch(function () {
+      el("routeStatus").textContent = "Could not save the key. Try again.";
+    });
+  });
+
   /* ---------- Named map views: zoom buttons from Suburb 1 to Suburb 2 ----------
      Saved in the shared database (meta/views) when there is one, otherwise in this browser. */
   const VIEWS_KEY = "wa-work-areas-views";
@@ -3993,6 +4231,7 @@ tr.sel td { background: var(--accent-soft); }
     loadGroupNamesOnce(db);
     loadBaseSuburbOnce(db);
     loadViewsOnce(db);
+    loadTomTomKeyOnce(db);
     loadOrsKeyOnce(db);
     if (user) {
       try {
