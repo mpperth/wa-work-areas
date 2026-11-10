@@ -2685,7 +2685,14 @@ tr.sel td { background: var(--accent-soft); }
       from[1] + "," + from[0] + ":" + to[1] + "," + to[0] + "/json" +
       "?key=" + encodeURIComponent(ttKey) + "&traffic=true&travelMode=car&routeType=fastest" +
       "&computeTravelTimeFor=all&departAt=" + encodeURIComponent(day + "T" + slot.at + ":00+08:00");
-    const res = await fetch(url);
+    let res = null;
+    try {
+      res = await fetch(url);
+    } catch (netErr) {
+      const e = new Error("blocked");
+      e.code = "blocked";
+      throw e;
+    }
     if (res.status === 401 || res.status === 403) {
       const e = new Error("key");
       e.code = "key";
@@ -2731,6 +2738,21 @@ tr.sel td { background: var(--accent-soft); }
     }
   }
 
+  /* opened from the artifact as ?from=CODE&to=CODE: fill both boxes and run */
+  function routeFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const a = state.byCode.get(params.get("from") || "");
+    const b = state.byCode.get(params.get("to") || "");
+    if (!a || !b) {
+      return;
+    }
+    routePickA = a.c;
+    routePickB = b.c;
+    el("routeA").value = cleanName(a.n);
+    el("routeB").value = cleanName(b.n);
+    runRoute();
+  }
+
   async function runRoute() {
     const a = state.byCode.get(pickedCode(routePickA, el("routeA").value.trim()));
     const b = state.byCode.get(pickedCode(routePickB, el("routeB").value.trim()));
@@ -2764,6 +2786,8 @@ tr.sel td { background: var(--accent-soft); }
         el("routeKey").value = "";
         el("routeKeyRow").hidden = false;
         el("routeStatus").textContent = "That TomTom key was not accepted. Paste it again.";
+      } else if (err && err.code === "blocked") {
+        el("routeStatus").textContent = "Could not reach TomTom. Check the internet connection and try again.";
       } else if (err && err.message) {
         el("routeStatus").textContent = err.message;
       } else {
@@ -4320,6 +4344,7 @@ tr.sel td { background: var(--accent-soft); }
       renderLabels();
       renderTable();
       renderViewButtons();
+      routeFromUrl();
     } catch (err) {
       el("tableEmpty").textContent = "Could not load the suburb list. Reload the page.";
     }
