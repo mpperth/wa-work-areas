@@ -3294,7 +3294,7 @@ tr.sel td { background: var(--accent-soft); }
       return;
     }
 
-    if (!state.currentId || state.selected.size === 0) {
+    if (state.selected.size === 0) {
       el("driveTimesStatus").textContent = "Open or select an area with suburbs in it first.";
       return;
     }
@@ -4320,6 +4320,31 @@ tr.sel td { background: var(--accent-soft); }
     }
   }
 
+  /* key handed over by the artifact's staff-site link (#o=...): save it, then remove it from the address bar */
+  if (location.hash.indexOf("#o=") === 0) {
+    const handedOrs = decodeURIComponent(location.hash.slice(3));
+    if (handedOrs) {
+      storeLocalOrsKey(handedOrs);
+    }
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  /* opened from the artifact's Drive times as ?base=CODE&dt=CODE,CODE,...: select those suburbs and calculate */
+  function driveFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const base = state.byCode.get(params.get("base") || "");
+    const codes = (params.get("dt") || "").split(",").filter(function (c) { return state.byCode.has(c); });
+    if (!base || codes.length === 0) {
+      return;
+    }
+    setSelection(codes);
+    afterChange();
+    fitSelected();
+    state.baseCode = base.c;
+    openDriveTimes();
+    el("btnCalcDriveTimes").click();
+  }
+
   async function loadStaticAreasFallback() {
     loadLocalOrsKey();
     try {
@@ -4346,6 +4371,7 @@ tr.sel td { background: var(--accent-soft); }
       loadLocalViews();
       await loadStaticAreasFallback();
       renderStatus();
+      driveFromUrl();
       return;
     }
     const pair = await Promise.all([window.claude.use("db"), window.claude.use("user"), window.claude.use("downloads")]);

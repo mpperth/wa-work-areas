@@ -137,3 +137,4 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   left panel (250px), From blue / To red badges + map labels, road route of quickest slot drawn,
   runs automatically once both suburbs are picked, one row per time slot, slowest red.
 - Closed 2026-11-11. Nothing queued here.
+- 2026-11-11 (artifact v47): also opened as `?base=CODE&dt=CODE,...#o=ORSKEY` from the older Drive times: selects those suburbs, opens Drive times and calculates. Drive times no longer needs a saved area open.
