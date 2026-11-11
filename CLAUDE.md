@@ -131,3 +131,9 @@ need paid GitHub for free Pages). Live at: `https://mpperth.github.io/wa-work-ar
   they are kept per browser in localStorage `wa-work-areas-views` (no db); default Perth view.
 - 2026-11-10: From/To suburb bar with drive times per time slot (artifact v36), TomTom Routing API with
   historic traffic. Each person pastes the TomTom key once (localStorage `wa-work-areas-tomtom-key`).
+- 2026-11-10 (artifact v37-v46): this site is where drive times actually run (claude.ai blocks the
+  artifact's outside calls). Opened from the artifact as `?from=CODE&to=CODE#k=KEY`: fills From/To and
+  runs; `#k=` key saved to localStorage then removed from the address bar. Drive times box at top of
+  left panel (250px), From blue / To red badges + map labels, road route of quickest slot drawn,
+  runs automatically once both suburbs are picked, one row per time slot, slowest red.
+- Closed 2026-11-11. Nothing queued here.
